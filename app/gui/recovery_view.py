@@ -10,7 +10,6 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
-    QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QLineEdit,
@@ -32,6 +31,7 @@ from app.core.reporting.json_report import save_json
 from app.core.reporting.pdf_report import render_pdf
 from app.core.reporting.report_builder import build_recovery_report
 from app.gui.theme import COLORS, mono_font
+from app.gui.widgets import file_dialogs
 from app.gui.widgets.progress_panel import ProgressPanel
 from app.gui.widgets.ui import Card, EmptyHint, Page, button, field_label, style_table
 from app.gui.workers import Worker
@@ -161,7 +161,7 @@ class RecoveryView(QWidget):
             return []
 
     def _browse_image(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Select disk image to scan", "", "Disk images (*.img *.dd *.dmg);;All files (*)")
+        path = file_dialogs.open_file(self, "Select disk image to scan", "Disk images (*.img *.dd *.dmg);;All files (*)")
         if path:
             self._source_input.setText(path)
             self._device_combo.setCurrentIndex(0)
@@ -272,7 +272,7 @@ class RecoveryView(QWidget):
             QMessageBox.warning(self, "No selection", "Select a recovered file from the results table first.")
             return
         candidate = self._standard_candidates[row]
-        dest, _ = QFileDialog.getSaveFileName(self, "Save recovered file as", candidate.suggested_name or "recovered_file")
+        dest = file_dialogs.save_file(self, "Save recovered file as", candidate.suggested_name or "recovered_file")
         if dest:
             shutil.copyfile(candidate.recovered_path, dest)
             QMessageBox.information(self, "Exported", f"Saved to {dest}")

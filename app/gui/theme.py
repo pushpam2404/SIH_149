@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
@@ -405,6 +406,54 @@ QTabBar::tab:selected {{
     font-weight: 600;
 }}
 
+/* ---------- Qt's own file dialog (used on every OS) ---------- */
+QFileDialog QTreeView, QFileDialog QListView, QTreeView, QListView {{
+    background: {c['surface']};
+    alternate-background-color: {c['surface_alt']};
+    border: 1px solid {c['border']};
+    border-radius: {RADIUS['md']}px;
+    selection-background-color: {c['selection']};
+    selection-color: {c['text']};
+}}
+QTreeView::item, QListView::item {{
+    padding: 4px 6px;
+}}
+QTreeView::item:hover, QListView::item:hover {{
+    background: {c['surface_alt']};
+}}
+QTreeView::item:selected, QListView::item:selected {{
+    background: {c['selection']};
+    color: {c['text']};
+}}
+QFileDialog QListView#sidebar {{
+    background: {c['sidebar']};
+}}
+QToolButton {{
+    background: {c['surface_raised']};
+    border: 1px solid {c['border_strong']};
+    border-radius: {RADIUS['sm']}px;
+    padding: 4px;
+}}
+QToolButton:hover {{
+    background: #213050;
+}}
+QToolButton:disabled {{
+    background: {c['surface_alt']};
+    border-color: {c['border']};
+}}
+QMenu {{
+    background: {c['surface_raised']};
+    border: 1px solid {c['border_strong']};
+    padding: 4px;
+}}
+QMenu::item {{
+    padding: 6px 18px;
+    border-radius: {RADIUS['sm']}px;
+}}
+QMenu::item:selected {{
+    background: {c['selection']};
+}}
+
 /* ---------- Progress & log ---------- */
 QProgressBar {{
     background: {c['surface_alt']};
@@ -511,6 +560,9 @@ def apply_theme(app: QApplication) -> None:
     """Fusion style + dark palette + stylesheet. Fusion makes QSS render the
     same on macOS/Linux/Windows instead of mixing with native widget chrome."""
     load_fonts()
+    # Qt-drawn dialogs everywhere (file pickers, message boxes, input dialogs),
+    # so they follow this theme and look the same on Windows, Linux and macOS.
+    QApplication.setAttribute(Qt.AA_DontUseNativeDialogs, True)
     app.setStyle("Fusion")
     app.setPalette(_palette())
     ui_font = QFont()

@@ -6,7 +6,6 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QFileDialog,
     QHBoxLayout,
     QMessageBox,
     QVBoxLayout,
@@ -23,6 +22,7 @@ from app.core.erasure.standards import list_standards
 from app.core.reporting.json_report import save_json
 from app.core.reporting.pdf_report import render_pdf
 from app.core.reporting.report_builder import build_drive_erase_report
+from app.gui.widgets import file_dialogs
 from app.gui.widgets.confirm_dialog import ConfirmDestructiveDialog
 from app.gui.widgets.device_table import DeviceTable
 from app.gui.widgets.progress_panel import ProgressPanel
@@ -126,7 +126,7 @@ class DriveEraserView(QWidget):
         self._table.set_devices(devices, self._backend)
 
     def _pick_disk_image(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Select disk image file", "", "Disk images (*.img *.dd *.dmg);;All files (*)")
+        path = file_dialogs.open_file(self, "Select disk image file", "Disk images (*.img *.dd *.dmg);;All files (*)")
         if path:
             self._selected_image_path = path
             self._refresh_devices()

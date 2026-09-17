@@ -13,12 +13,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QInputDialog,
-    QFileDialog,
 )
 
 from app.core.audit.ledger import AuditLedger
 from app.core.audit.certificate import CertificateGenerator
 from app.gui.theme import COLORS, mono_font
+from app.gui.widgets import file_dialogs
 from app.gui.widgets.ui import Badge, Card, EmptyHint, Page, button, hint, style_table
 
 _COLUMNS = ["ID", "Timestamp (UTC)", "Actor", "Action", "Target", "Entry Hash"]
@@ -152,7 +152,7 @@ class AuditLogView(QWidget):
         if not ok or not wipe_status:
             return
 
-        out_path, _ = QFileDialog.getSaveFileName(
+        out_path = file_dialogs.save_file(
             self, "Save Certificate", f"certificate_{operator_name.replace(' ', '_')}.json", "JSON Files (*.json)"
         )
         if not out_path:

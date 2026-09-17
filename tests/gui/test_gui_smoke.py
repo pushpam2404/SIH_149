@@ -82,3 +82,17 @@ def test_recovery_result_tabs_show_counts(window):
     tabs = window._recovery._results_tabs
     assert tabs.tabText(0) == "Recovered Files  (0)"
     assert tabs.tabText(1).startswith("PII / Metadata Artifacts")
+
+
+def test_file_dialogs_use_the_themed_qt_dialog_on_every_os(window):
+    from PySide6.QtWidgets import QApplication, QFileDialog
+    from PySide6.QtCore import Qt
+    from app.gui.widgets import file_dialogs
+
+    assert QApplication.testAttribute(Qt.AA_DontUseNativeDialogs)
+    dialog = file_dialogs._dialog(window, "Pick", QFileDialog.ExistingFile, "Disk images (*.img);;All files (*)")
+    assert dialog.testOption(QFileDialog.DontUseNativeDialog)
+    assert isinstance(dialog.iconProvider(), file_dialogs.ThemedIconProvider)
+    assert dialog.sidebarUrls(), "sidebar should list home folders and drives"
+    assert dialog.nameFilters() == ["Disk images (*.img)", "All files (*)"]
+    dialog.close()

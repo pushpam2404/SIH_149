@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QFileDialog,
     QHBoxLayout,
     QListWidget,
     QMessageBox,
@@ -16,6 +15,7 @@ from app.core.erasure.file_eraser import BatchEraseResult, erase_batch, erase_fo
 from app.core.reporting.json_report import save_json
 from app.core.reporting.pdf_report import render_pdf
 from app.core.reporting.report_builder import build_file_erase_report
+from app.gui.widgets import file_dialogs
 from app.gui.widgets.confirm_dialog import ConfirmDestructiveDialog
 from app.gui.theme import mono_font
 from app.gui.widgets.progress_panel import ProgressPanel
@@ -104,12 +104,12 @@ class FileEraserView(QWidget):
             self._count_badge.set(f"{count} file{'s' if count != 1 else ''}", "warning" if count else "neutral")
 
     def _add_files(self) -> None:
-        paths, _ = QFileDialog.getOpenFileNames(self, "Select files to securely erase")
+        paths = file_dialogs.open_files(self, "Select files to securely erase")
         for path in paths:
             self._queue_list.addItem(path)
 
     def _add_folder(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "Select folder to securely erase (entire folder)")
+        path = file_dialogs.existing_directory(self, "Select folder to securely erase (entire folder)")
         if path:
             self._queued_folder = path
             self._queue_list.clear()
