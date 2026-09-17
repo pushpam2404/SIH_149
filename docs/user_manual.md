@@ -34,6 +34,11 @@ the 15 most recent audit entries. All of this is read from the real
 audit log and `reports/` folder; there is no sample data, so a fresh
 install shows an empty dashboard.
 
+**File pickers** are the app's own, not Finder/File Explorer/GTK, so they
+look and behave the same on Windows, Linux and macOS. The left side lists
+home folders and every mounted drive or volume; you can also type a full
+path into **File name** and press Enter.
+
 Colours are used consistently: blue buttons are normal main actions, red
 buttons erase data, amber notes are warnings. Status is always also
 written in text (for example `SAFE` / `BLOCKED`), not shown by colour

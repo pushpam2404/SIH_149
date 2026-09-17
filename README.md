@@ -47,10 +47,19 @@ certificate.
 | Setup script | `scripts\setup_env.ps1` (run in CI) | `scripts/setup_env.sh` (apt/dnf) | `scripts/setup_env.sh` (Homebrew) |
 | Disk listing + system disk blocked, on a real machine | ✅ CI runner | ✅ CI runner | ✅ CI runner + dev Mac |
 | GUI starts (headless) | ✅ CI | ✅ CI | ✅ CI; used daily on the dev Mac |
+| Same look: pages, dialogs, file pickers (rendered in CI, compared by eye) | ✅ | ✅ | ✅ |
 | Simulation erase of a disk image | ✅ tests | ✅ tests | ✅ tests + manual |
 | Deleted-file recovery from a FAT image | ✅ tests (pytsk3) | ✅ tests (pytsk3) | ✅ tests + manual walkthrough |
 | Erase of a **physical** drive | ⚠️ implemented, never run | ⚠️ implemented, never run | ⚠️ implemented, never run |
 | Physical drive access needs | Administrator | root (`sudo`) | root (`sudo`) |
+
+**One UI everywhere:** the app draws everything inside its window itself —
+one dark theme, bundled fonts and icons, and its own file picker instead of
+Finder / File Explorer / GTK dialogs — so it looks the same on all three.
+Only the window's title bar and the OS's font smoothing differ. CI renders
+every page and dialog on each OS (`scripts/render_screenshots.py`) and
+publishes them to the `ci-screenshots-windows`, `ci-screenshots-linux` and
+`ci-screenshots-macos` branches.
 
 "CI runner" means GitHub's hosted virtual machines, which have virtual
 disks, not USB sticks. Removable-drive detection on Windows and Linux is

@@ -95,8 +95,11 @@ def _dialog(parent: QWidget | None, title: str, mode: QFileDialog.FileMode, name
         splitter.setSizes([210, 690])
     tree = dialog.findChild(QTreeView)
     if tree is not None:
-        tree.header().setStretchLastSection(False)
-        tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        header = tree.header()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        for column in range(1, header.count()):
+            header.setSectionResizeMode(column, QHeaderView.ResizeToContents)
     if name_filter:
         dialog.setNameFilter(name_filter)
     return dialog

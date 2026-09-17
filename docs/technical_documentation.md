@@ -253,6 +253,17 @@ a known file" feature.
   Windows, Linux and macOS in CI. Nobody has *looked* at the GUI on a
   Windows or Linux desktop; fonts are bundled, so text should match, but
   native file dialogs will look like each OS's own.
+- **Same UI on every OS:** the only platform-drawn parts left are the window
+  title bar and font rasterisation. Everything inside the window, including
+  dialogs, is Qt-drawn with one stylesheet: `theme.apply_theme()` sets
+  `AA_DontUseNativeDialogs`, and `widgets/file_dialogs.py` wraps QFileDialog
+  with the non-native dialog, a `ThemedIconProvider` (Lucide folder/file/
+  drive icons instead of the OS icon theme) and a sidebar of home folders
+  plus mounted volumes (`QDir.drives()` on Windows, `/Volumes/*` on macOS,
+  `/media/$USER`, `/run/media/$USER`, `/mnt` on Linux). Trade-off: no
+  Finder/Explorer favourites, tags or search. `scripts/render_screenshots.py`
+  renders every page and dialog; CI runs it with each OS's real display
+  system and publishes the PNGs to `ci-screenshots-<os>` branches.
 - **Windows specifics:** the process sets its own AppUserModelID so the
   taskbar shows the app rather than python.exe; subprocesses (PowerShell,
   PhotoRec) start with `CREATE_NO_WINDOW` so no console windows flash.

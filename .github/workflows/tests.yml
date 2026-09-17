@@ -114,4 +114,4 @@ jobs:
           git config user.email "github-actions@users.noreply.github.com"
           git add .
           git commit -q -m "Screenshots for ${GITHUB_SHA::7} on ${RUNNER_OS}"
-          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:ci-screenshots-${RUNNER_OS,,}"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:ci-screenshots-$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')"

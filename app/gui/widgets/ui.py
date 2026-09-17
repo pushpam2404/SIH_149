@@ -125,7 +125,11 @@ class Badge(QLabel):
     def set_tone(self, tone: str) -> None:
         fg, bg = TONE_COLORS.get(tone, TONE_COLORS["neutral"])
         self.setStyleSheet(
-            f"background:{bg}; color:{fg}; border-radius:10px; padding:3px 10px; font-size:11px; font-weight:600;"
+            # min-height keeps the pill taller than 2 × radius on every OS: Qt drops the
+            # rounding entirely when the radius exceeds half the height (seen on Windows,
+            # whose font metrics make the label a few pixels shorter than on macOS).
+            f"background:{bg}; color:{fg}; border-radius:9px; padding:2px 10px; min-height:16px;"
+            "font-size:11px; font-weight:600;"
         )
 
     def set(self, text: str, tone: str) -> None:

@@ -106,17 +106,36 @@ on by default.
 | **Audit Log** | A record of everything the app did. **Verify Chain Integrity** checks if anyone edited the record. |
 | **Reports** | PDF reports the app created after each erase or scan. Double-click one to open it. |
 
-### "Why can't I select my file?" (greyed-out files)
+### The file window (same on Windows, Linux and Mac)
+
+Whenever the app asks you to pick a file or folder, it opens **its own**
+dark file window, which looks and works the same on every computer
+(not the usual Finder or File Explorer window):
+
+- **Left side:** your Home, Desktop, Documents and Downloads folders, and
+  **every drive** that is plugged in (on a Mac, e.g. `Macintosh HD` or a
+  USB stick; on Windows, `C:\`, `D:\` …). Click one to jump there.
+- **"File name" box at the bottom:** you can also type or paste a full
+  path here (e.g. `/Volumes/DEMOVOL` or `E:\`) and press **Enter** to go
+  straight to it.
+- **"Files of type" box below it:** limits which files are shown.
+- The buttons at the top go back, forward, up one folder, create a new
+  folder, and switch between list and detail view.
+
+Drives are listed when the window opens — if you plug one in while it's
+open, close the window and open it again.
+
+### "Why can't I see my file?"
 
 The **Select Disk Image File...** button (Drive Eraser) and **Browse
 Image...** button (Recovery) only show disk image files (`.img`, `.dd`,
-`.dmg`) by default. Everything else looks grey.
+`.dmg`) by default. Everything else is hidden.
 
 - That's on purpose — these pages work on **whole disks**, not single
   photos or documents.
 - If you really need another file: at the bottom of the file window,
-  click the **"Disk images (*.img *.dd *.dmg)"** dropdown and change it to
-  **"All files (*)"**.
+  click the **Files of type** box (it says **"Disk images (*.img *.dd
+  *.dmg)"**) and change it to **"All files (*)"**.
 - **Want to erase a normal file?** Use the **File & Folder Eraser** page
   instead. Its file picker shows all files.
 
@@ -261,8 +280,8 @@ files starting with `._` — that's normal, ignore them.)
 
 1. In the app, click **File & Folder Eraser** in the left menu.
 2. Click **Add Files...**
-3. In the file window, press **⌘ ⇧ G** (Command + Shift + G), type
-   `/Volumes/DEMOVOL`, press Enter.
+3. In the file window, click **DEMOVOL** on the left side. (Or type
+   `/Volumes/DEMOVOL` in the **File name** box and press Enter.)
 4. Select **photo2.jpg** and click **Open**.
 5. Click **Securely Erase Queue**.
 6. In the confirmation window, type exactly `ERASE FILES`, tick the
@@ -270,7 +289,7 @@ files starting with `._` — that's normal, ignore them.)
 7. You'll see `Erase complete — PASS`. A warning window about filesystem
    limits may pop up — that's expected, read it and close it.
 
-**If photo2.jpg is greyed out and you can't select it:** macOS may be
+**If DEMOVOL looks empty or you get a permission error:** macOS may be
 blocking the app from reading removable disks. Go to **System Settings →
 Privacy & Security → Files & Folders → Terminal** and turn on
 **Removable Volumes**. Then quit the app, start it again (Part 2), and
@@ -423,7 +442,8 @@ treat it as untested.
    **Format…**; Linux: the Disks app).
 2. Copy two photos onto it: `photo1.jpg` and `photo2.jpg`.
 3. **Erase photo2 first:** in the app, **File & Folder Eraser** →
-   **Add Files...** → pick `photo2.jpg` on the stick → **Securely Erase
+   **Add Files...** → click the USB stick's drive on the left side of the
+   file window → pick `photo2.jpg` → **Securely Erase
    Queue** → type `ERASE FILES`, tick the box, **Erase permanently**.
 4. **Then delete photo1 normally:** Windows — select it and press
    **Shift + Delete** (skips the Recycle Bin). Linux — `rm` it in a terminal.
@@ -472,8 +492,9 @@ system — can overwrite photo1.
 | `Could not find disk for /dev/diskN` | You typed the letter `N`. Replace it with your number from Step 2, e.g. `/dev/disk4`. |
 | Forgot the number from Step 2 | Run `diskutil list` and find the line that says `(disk image)` with a size of about 67.1 MB — e.g. `/dev/disk4 (disk image):`. That's your number. |
 | `diskutil image attach ... doesn't exist` | Don't use `diskutil image attach`. Use the `hdiutil attach` command from Step 2 exactly. |
-| Files greyed out in the File & Folder Eraser | See the note at the end of Step 6 (Removable Volumes permission). |
-| Files greyed out in Drive Eraser / Recovery | Change the dropdown to "All files (*)" — see Part 3. |
+| A drive looks empty in the File & Folder Eraser (Mac) | See the note at the end of Step 6 (Removable Volumes permission). |
+| My file isn't shown in Drive Eraser / Recovery | Change **Files of type** to "All files (*)" — see Part 3. |
+| A USB stick isn't on the left side of the file window | It was plugged in after the window opened. Close the window and open it again. |
 | Recovery finds nothing from the normally deleted file (photo1 shows as GZIP/unknown, no PNG row) | Something wrote over the start of photo1: Step 4b was skipped, steps were done out of order, or something was copied onto the stick after deleting. Start over. |
 | `touch: /Volumes/DEMOVOL/.fseventsd/no_log: No such file or directory` | The stick isn't mounted, or Step 4 didn't finish. Run `ls /Volumes` — you should see `DEMOVOL`. |
 | Recovery shows 0 results at all | Check the status line for `engines unavailable`. If both `pytsk3` and `photorec` are listed, the setup is incomplete — see the README. |
