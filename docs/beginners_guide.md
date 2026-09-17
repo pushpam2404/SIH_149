@@ -194,6 +194,25 @@ diskutil eraseVolume MS-DOS DEMOVOL /dev/diskN
 This formats the pretend stick (like a real USB stick) and names it
 `DEMOVOL`. It now appears in Finder and at `/Volumes/DEMOVOL`.
 
+### Step 4b — Stop macOS from writing its own logs onto the stick
+
+macOS quietly writes small log files (in a hidden folder called
+`.fseventsd`) onto every disk you connect. It does this **on its own, at
+random times** — and if it happens after you delete photo1, those logs can
+land right on top of photo1 and ruin the recovery. These three commands
+turn that off for this pretend stick (replace `N` as before):
+
+```bash
+touch /Volumes/DEMOVOL/.fseventsd/no_log
+diskutil unmount /dev/diskN
+diskutil mount /dev/diskN
+```
+
+- The first line creates an empty "no_log" file, which tells macOS "don't
+  keep logs on this disk".
+- The next two lines disconnect and reconnect the stick so macOS notices.
+  After the last one you should see `Volume DEMOVOL on diskN mounted`.
+
 ### Step 5 — Copy two photos onto it
 
 ```bash
@@ -280,6 +299,12 @@ What we saw when we tested this:
 | `_hoto2.jpg` and a random name like `ktrvjgwx7ul31092`, type **unknown**, confidence **20 (low)** | ❌ **photo2 — erased.** The entries still exist, but the contents are random junk. It won't open as a picture. |
 | Names starting with `._`, `.gz` files, `.apple` files | Leftover macOS system/housekeeping data. Ignore. |
 
+**If photo1 did NOT come back** — for example `_hoto1.png` shows type
+**GZIP** or **unknown** with a tiny size (like 2048), and there is no
+**PNG** row from photorec — then something was written on top of the
+start of photo1 before the scan. See "Why the order matters" below, then
+start over and make sure you did Step 4b.
+
 To **prove** photo1 came back: click its row, click **Export Selected
 File...**, save it to your Desktop, and open it. It's your picture.
 
@@ -294,18 +319,30 @@ image.
   fine — that optional tool just isn't installed. It only fills the
   "PII / Metadata Artifacts" table.
 
-### Why the order matters
+### Why the order matters (and why Step 4b exists)
 
-On FAT disks (USB sticks), new data is written into the **first free
-space**. When you delete photo1, its space becomes free. If you then erase
-photo2 in the app, the app creates small new entries on the disk — and
-they land **exactly on the start of photo1**, destroying its header.
-Without the header, photo1 can't be recognized or recovered.
+When you delete a file normally, its space is marked as **free**. On FAT
+disks (like USB sticks), the next thing written to the disk usually goes
+into the **first free space** — which is exactly where photo1 was. Even a
+tiny write there destroys the start of photo1 (its "header"). Without the
+header, neither recovery engine can recognize it, even if 99.9% of the
+picture is still on the disk.
 
-So: **erase first, delete normally last, eject immediately.**
+Two things can write to the disk after photo1 is deleted:
 
-We learned this the hard way — in the wrong order, 99.9% of photo1's data
-was still on the disk, but neither recovery engine could find it.
+1. **The app itself**, when it securely erases photo2 (it creates a few
+   small new entries). → That's why you **erase photo2 first** (Step 6)
+   and **delete photo1 last** (Step 7).
+2. **macOS**, which writes its own `.fseventsd` log files at random times,
+   including when you eject. → That's what **Step 4b** turns off.
+
+We hit both of these while writing this guide: once photo1's start was
+overwritten by the `.fseventsd` log files (they then showed up in the
+results as `f0000297.gz` and `f0000301.gz`, sitting exactly where photo1
+used to start). With Step 4b, our test runs wrote **no** log files to the
+stick and photo1's start stayed intact in both runs.
+
+So: **Step 4b, erase first, delete normally last, eject immediately.**
 
 ### Starting over
 
@@ -346,5 +383,6 @@ Then go back to Step 1. (Make sure it's ejected first — Step 8.)
 | `diskutil image attach ... doesn't exist` | Don't use `diskutil image attach`. Use the `hdiutil attach` command from Step 2 exactly. |
 | Files greyed out in the File & Folder Eraser | See the note at the end of Step 6 (Removable Volumes permission). |
 | Files greyed out in Drive Eraser / Recovery | Change the dropdown to "All files (*)" — see Part 3. |
-| Recovery finds nothing from the normally deleted file | Steps were done out of order, or something was copied onto the stick after deleting. Start over. |
+| Recovery finds nothing from the normally deleted file (photo1 shows as GZIP/unknown, no PNG row) | Something wrote over the start of photo1: Step 4b was skipped, steps were done out of order, or something was copied onto the stick after deleting. Start over. |
+| `touch: /Volumes/DEMOVOL/.fseventsd/no_log: No such file or directory` | The stick isn't mounted, or Step 4 didn't finish. Run `ls /Volumes` — you should see `DEMOVOL`. |
 | Recovery shows 0 results at all | Check the status line for `engines unavailable`. If both `pytsk3` and `photorec` are listed, the setup is incomplete — see the README. |
