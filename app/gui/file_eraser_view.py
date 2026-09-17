@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QListWidget,
     QMessageBox,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -18,7 +17,9 @@ from app.core.reporting.json_report import save_json
 from app.core.reporting.pdf_report import render_pdf
 from app.core.reporting.report_builder import build_file_erase_report
 from app.gui.widgets.confirm_dialog import ConfirmDestructiveDialog
+from app.gui.theme import mono_font
 from app.gui.widgets.progress_panel import ProgressPanel
+from app.gui.widgets.ui import Badge, Callout, Card, EmptyHint, Page, button
 from app.gui.workers import Worker
 
 
@@ -29,32 +30,78 @@ class FileEraserView(QWidget):
         self._worker: Worker | None = None
         self._queued_folder: str | None = None
 
-        layout = QVBoxLayout(self)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        page = Page(
+            "File & Folder Eraser",
+            "Overwrite files with random data, strip metadata, rename, then delete — so the contents "
+            "can't be recovered by normal undelete tools.",
+        )
+        root.addWidget(page)
+
+        queue_card = Card("Erase queue", "Files or one folder to securely erase.", icon_name="file-x")
+        self._count_badge = Badge("0 items", "neutral")
+        queue_card.actions.addWidget(self._count_badge)
 
         button_row = QHBoxLayout()
-        add_files_btn = QPushButton("Add Files...")
+        button_row.setSpacing(8)
+        add_files_btn = button("Add Files...", icon_name="file-plus")
         add_files_btn.clicked.connect(self._add_files)
         button_row.addWidget(add_files_btn)
 
-        add_folder_btn = QPushButton("Add Folder...")
+        add_folder_btn = button("Add Folder...", icon_name="folder-plus")
         add_folder_btn.clicked.connect(self._add_folder)
         button_row.addWidget(add_folder_btn)
 
-        clear_btn = QPushButton("Clear Queue")
+        clear_btn = button("Clear Queue", variant="ghost", icon_name="x")
         clear_btn.clicked.connect(self._clear_queue)
         button_row.addWidget(clear_btn)
         button_row.addStretch()
-        layout.addLayout(button_row)
+        queue_card.body.addLayout(button_row)
 
         self._queue_list = QListWidget()
-        layout.addWidget(self._queue_list)
+        self._queue_list.setMinimumHeight(160)
+        self._queue_list.setFont(mono_font(12))
+        self._empty_hint = EmptyHint(
+            "Nothing queued yet.\nUse Add Files... or Add Folder... to choose what to erase.",
+            self._queue_list.viewport(),
+        )
+        model = self._queue_list.model()
+        model.rowsInserted.connect(self._update_queue_state)
+        model.rowsRemoved.connect(self._update_queue_state)
+        model.modelReset.connect(self._update_queue_state)
+        queue_card.body.addWidget(self._queue_list, 1)
 
-        erase_btn = QPushButton("Securely Erase Queue")
+        queue_card.body.addWidget(
+            Callout(
+                "On SSDs and copy-on-write filesystems (e.g. APFS) old copies of the data may survive "
+                "elsewhere on the disk. The app lists these caveats after each erase.",
+                tone="warning",
+            )
+        )
+
+        erase_row = QHBoxLayout()
+        erase_row.addStretch()
+        erase_btn = button("Securely Erase Queue", variant="danger", icon_name="trash", large=True)
         erase_btn.clicked.connect(self._start_erase)
-        layout.addWidget(erase_btn)
+        erase_row.addWidget(erase_btn)
+        queue_card.body.addLayout(erase_row)
+        page.body.addWidget(queue_card, 3)
 
-        self._progress = ProgressPanel()
-        layout.addWidget(self._progress)
+        progress_card = Card("Progress", icon_name="activity")
+        self._progress = ProgressPanel(log_min_height=90)
+        progress_card.body.addWidget(self._progress)
+        page.body.addWidget(progress_card, 2)
+
+        self._update_queue_state()
+
+    def _update_queue_state(self, *_args) -> None:
+        count = self._queue_list.count()
+        self._empty_hint.setVisible(count == 0)
+        if self._queued_folder:
+            self._count_badge.set("1 folder", "warning")
+        else:
+            self._count_badge.set(f"{count} file{'s' if count != 1 else ''}", "warning" if count else "neutral")
 
     def _add_files(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(self, "Select files to securely erase")
@@ -71,6 +118,7 @@ class FileEraserView(QWidget):
     def _clear_queue(self) -> None:
         self._queue_list.clear()
         self._queued_folder = None
+        self._update_queue_state()
 
     def _start_erase(self) -> None:
         if self._queue_list.count() == 0:
@@ -106,6 +154,7 @@ class FileEraserView(QWidget):
         self._progress.finish(f"Erase complete — {status}")
         self._queue_list.clear()
         self._queued_folder = None
+        self._update_queue_state()
         
         all_warnings = set()
         for res in batch.results:

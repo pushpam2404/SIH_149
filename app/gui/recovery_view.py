@@ -6,16 +6,16 @@ import shutil
 import time
 from pathlib import Path
 
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
-    QLabel,
     QLineEdit,
     QMessageBox,
-    QPushButton,
+    QTabWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -24,14 +24,16 @@ from PySide6.QtWidgets import (
 
 from app.config.settings import DATA_DIR, REPORTS_DIR
 from app.core.audit.ledger import AuditLedger
-from app.core.devices.enumerator import list_devices
+from app.core.devices.enumerator import list_devices, raw_access_problem
 from app.core.recovery.confidence import confidence_label
 from app.core.recovery.engine_base import RecoveredFileCandidate
 from app.core.recovery.scan_service import ScanSummary, run_recovery_scan
 from app.core.reporting.json_report import save_json
 from app.core.reporting.pdf_report import render_pdf
 from app.core.reporting.report_builder import build_recovery_report
+from app.gui.theme import COLORS, mono_font
 from app.gui.widgets.progress_panel import ProgressPanel
+from app.gui.widgets.ui import Card, EmptyHint, Page, button, field_label, style_table
 from app.gui.workers import Worker
 from app.utils.logging_setup import get_logger
 
@@ -39,6 +41,7 @@ logger = get_logger(__name__)
 
 _RESULT_COLUMNS = ["Name", "Engine", "File Type", "Size (bytes)", "Confidence", "Fragmented", "SHA-256", "Fuzzy Hash (ppdeep)"]
 _ARTIFACT_COLUMNS = ["Artifact File", "Size (bytes)"]
+_CONFIDENCE_COLORS = {"high": COLORS["success"], "medium": COLORS["accent"], "low": COLORS["text_muted"]}
 
 
 class RecoveryView(QWidget):
@@ -51,64 +54,104 @@ class RecoveryView(QWidget):
         self._standard_candidates: list[RecoveredFileCandidate] = []
         self._artifact_candidates: list[RecoveredFileCandidate] = []
 
-        layout = QVBoxLayout(self)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        page = Page(
+            "Recovery",
+            "Scan a disk image or attached drive for deleted files. Engines: pytsk3 (filesystem-aware), "
+            "PhotoRec (signature carving) and bulk_extractor (PII / metadata), when installed.",
+        )
+        root.addWidget(page)
 
+        top = QHBoxLayout()
+        top.setSpacing(16)
+
+        source_card = Card("Source", "Scanning only reads the source; recovered files are written elsewhere.", icon_name="search")
+        source_card.body.addWidget(field_label("Source:"))
         source_row = QHBoxLayout()
-        source_row.addWidget(QLabel("Source:"))
+        source_row.setSpacing(8)
         self._source_input = QLineEdit()
         self._source_input.setPlaceholderText("Path to a disk image file, or pick an attached device below")
-        source_row.addWidget(self._source_input)
+        self._source_input.setFont(mono_font(12))
+        source_row.addWidget(self._source_input, 1)
 
-        browse_btn = QPushButton("Browse Image...")
+        browse_btn = button("Browse Image...", icon_name="folder-open")
         browse_btn.clicked.connect(self._browse_image)
         source_row.addWidget(browse_btn)
-        layout.addLayout(source_row)
+        source_card.body.addLayout(source_row)
 
-        device_row = QHBoxLayout()
-        device_row.addWidget(QLabel("Or attached device:"))
+        source_card.body.addWidget(field_label("Or attached device:"))
         self._device_combo = QComboBox()
         self._device_combo.addItem("(none)", userData=None)
         for device in self._safe_list_devices():
             self._device_combo.addItem(f"{device.display_name} ({device.path})", userData=device.path)
         self._device_combo.currentIndexChanged.connect(self._on_device_selected)
-        device_row.addWidget(self._device_combo)
-        device_row.addStretch()
-        layout.addLayout(device_row)
+        source_card.body.addWidget(self._device_combo)
+        source_card.body.addStretch()
 
-        scan_btn = QPushButton("Start Recovery Scan")
+        scan_btn = button("Start Recovery Scan", variant="primary", icon_name="search", large=True)
         scan_btn.clicked.connect(self._start_scan)
-        layout.addWidget(scan_btn)
+        source_card.body.addWidget(scan_btn)
+        top.addWidget(source_card, 3)
 
-        self._progress = ProgressPanel()
-        layout.addWidget(self._progress)
+        progress_card = Card("Progress", icon_name="activity")
+        self._progress = ProgressPanel(log_min_height=80)
+        progress_card.body.addWidget(self._progress)
+        top.addWidget(progress_card, 2)
+        page.body.addLayout(top)
+
+        results_card = Card("Results", "Select a recovered file to export it.", icon_name="recover")
+
+        export_btn = button("Export Selected File...", icon_name="download")
+        export_btn.clicked.connect(self._export_selected)
+        results_card.actions.addWidget(export_btn)
+
+        report_btn = button("Generate Forensic Report", icon_name="file-output")
+        report_btn.clicked.connect(self._generate_report)
+        results_card.actions.addWidget(report_btn)
+
+        self._results_tabs = QTabWidget()
+        self._results_tabs.setDocumentMode(True)
 
         self._results_table = QTableWidget(0, len(_RESULT_COLUMNS))
         self._results_table.setHorizontalHeaderLabels(_RESULT_COLUMNS)
         self._results_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._results_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        layout.addWidget(QLabel("Recovered Files:"))
-        layout.addWidget(self._results_table)
+        style_table(self._results_table)
+        header = self._results_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.Interactive)
+        header.setStretchLastSection(True)
+        for col, width in enumerate([190, 80, 80, 95, 100, 85, 140]):
+            self._results_table.setColumnWidth(col, width)
+        self._results_empty = EmptyHint(
+            "No results yet.\nChoose a source and click Start Recovery Scan.", self._results_table.viewport()
+        )
+        self._results_tabs.addTab(self._results_table, "Recovered Files:")
 
         self._artifacts_table = QTableWidget(0, len(_ARTIFACT_COLUMNS))
         self._artifacts_table.setHorizontalHeaderLabels(_ARTIFACT_COLUMNS)
         self._artifacts_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._artifacts_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        style_table(self._artifacts_table)
         self._artifacts_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self._artifacts_table.itemSelectionChanged.connect(self._show_artifact_contents)
-        layout.addWidget(QLabel("PII / Metadata Artifacts (Bulk Extractor):"))
-        layout.addWidget(self._artifacts_table)
+        self._artifacts_empty = EmptyHint(
+            "No PII / metadata artifacts.\nThis table is filled by bulk_extractor when it is installed.",
+            self._artifacts_table.viewport(),
+        )
+        self._results_tabs.addTab(self._artifacts_table, "PII / Metadata Artifacts (Bulk Extractor):")
+        self._update_result_tabs()
 
-        result_actions = QHBoxLayout()
-        export_btn = QPushButton("Export Selected File...")
-        export_btn.clicked.connect(self._export_selected)
-        result_actions.addWidget(export_btn)
+        results_card.body.addWidget(self._results_tabs, 1)
+        page.body.addWidget(results_card, 1)
 
-        report_btn = QPushButton("Generate Forensic Report")
-        report_btn.clicked.connect(self._generate_report)
-        result_actions.addWidget(report_btn)
-        result_actions.addStretch()
-        layout.addLayout(result_actions)
+    def _update_result_tabs(self) -> None:
+        results = self._results_table.rowCount()
+        artifacts = self._artifacts_table.rowCount()
+        self._results_tabs.setTabText(0, f"Recovered Files  ({results})")
+        self._results_tabs.setTabText(1, f"PII / Metadata Artifacts — Bulk Extractor  ({artifacts})")
+        self._results_empty.setVisible(results == 0)
+        self._artifacts_empty.setVisible(artifacts == 0)
 
     def _safe_list_devices(self):
         try:
@@ -133,10 +176,15 @@ class RecoveryView(QWidget):
         if not source:
             QMessageBox.warning(self, "No source", "Enter a disk image path or pick an attached device.")
             return
+        problem = raw_access_problem(source)
+        if problem:
+            QMessageBox.warning(self, "Can't read this device", problem)
+            return
 
         output_dir = str(DATA_DIR / "recovery_output" / f"scan_{int(time.time())}")
         self._progress.start(f"Scanning {source}...")
         self._results_table.setRowCount(0)
+        self._update_result_tabs()
 
         self._worker = Worker(run_recovery_scan, source_path=source, output_dir=output_dir, ledger=self._ledger)
         self._worker.progress.connect(self._progress.log)
@@ -176,7 +224,18 @@ class RecoveryView(QWidget):
                 (candidate.fuzzy_hash or "")[:16] + "..." if candidate.fuzzy_hash else ("skipped (>4 MiB)" if candidate.size_bytes > 4 * 1024 * 1024 else "N/A"),
             ]
             for col, value in enumerate(values):
-                self._results_table.setItem(row, col, QTableWidgetItem(value))
+                item = QTableWidgetItem(value)
+                if col == 0:
+                    item.setToolTip(value)
+                elif col == 4:
+                    item.setForeground(QColor(_CONFIDENCE_COLORS[confidence_label(score)]))
+                elif col in (6, 7):
+                    item.setFont(mono_font(12))
+                    item.setForeground(QColor(COLORS["text_muted"]))
+                    full = candidate.sha256 if col == 6 else candidate.fuzzy_hash
+                    if full:
+                        item.setToolTip(full)
+                self._results_table.setItem(row, col, item)
                 
         self._artifacts_table.setRowCount(len(self._artifact_candidates))
         for row, candidate in enumerate(self._artifact_candidates):
@@ -186,6 +245,7 @@ class RecoveryView(QWidget):
             ]
             for col, value in enumerate(values):
                 self._artifacts_table.setItem(row, col, QTableWidgetItem(value))
+        self._update_result_tabs()
 
     def _show_artifact_contents(self) -> None:
         row = self._artifacts_table.currentRow()

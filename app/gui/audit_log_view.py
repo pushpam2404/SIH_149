@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import json
 
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QHBoxLayout,
     QHeaderView,
     QMessageBox,
-    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -19,6 +18,8 @@ from PySide6.QtWidgets import (
 
 from app.core.audit.ledger import AuditLedger
 from app.core.audit.certificate import CertificateGenerator
+from app.gui.theme import COLORS, mono_font
+from app.gui.widgets.ui import Badge, Card, EmptyHint, Page, button, hint, style_table
 
 _COLUMNS = ["ID", "Timestamp (UTC)", "Actor", "Action", "Target", "Entry Hash"]
 
@@ -28,31 +29,50 @@ class AuditLogView(QWidget):
         super().__init__(parent)
         self._ledger = ledger
 
-        layout = QVBoxLayout(self)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        page = Page(
+            "Audit Log",
+            "Hash-chained record of every erase and scan. Click a row to see its full details.",
+        )
+        root.addWidget(page)
 
-        button_row = QHBoxLayout()
-        refresh_btn = QPushButton("Refresh")
+        refresh_btn = button("Refresh", icon_name="refresh")
         refresh_btn.clicked.connect(self.refresh)
-        button_row.addWidget(refresh_btn)
+        page.header_actions.addWidget(refresh_btn)
 
-        verify_btn = QPushButton("Verify Chain Integrity")
+        verify_btn = button("Verify Chain Integrity", variant="primary", icon_name="audit")
         verify_btn.clicked.connect(self._verify_chain)
-        button_row.addWidget(verify_btn)
-        
-        cert_btn = QPushButton("Generate Certificate (Sec. 63-style)")
+        page.header_actions.addWidget(verify_btn)
+
+        cert_btn = button("Generate Certificate (Sec. 63-style)", icon_name="certificate")
         cert_btn.clicked.connect(self._generate_certificate)
-        button_row.addWidget(cert_btn)
-        
-        button_row.addStretch()
-        layout.addLayout(button_row)
+        page.header_actions.addWidget(cert_btn)
+
+        card = Card("Ledger entries", icon_name="activity")
+        self._count_badge = Badge("0 entries", "neutral")
+        card.actions.addWidget(self._count_badge)
 
         self._table = QTableWidget(0, len(_COLUMNS))
         self._table.setHorizontalHeaderLabels(_COLUMNS)
         self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        style_table(self._table)
+        header = self._table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.Stretch)
         self._table.itemSelectionChanged.connect(self._show_selected_payload)
-        layout.addWidget(self._table)
+        self._empty = EmptyHint("The audit log is empty.", self._table.viewport())
+        card.body.addWidget(self._table)
+        page.body.addWidget(card, 1)
+
+        card.body.addWidget(
+            hint(
+                "Each entry is chained to the previous one with SHA-256 and a ratcheting HMAC tag. "
+                "Timestamps come from this computer's clock. Verification detects changes after the fact; "
+                "it cannot stop someone with file access from editing the database."
+            )
+        )
 
         self.refresh()
 
@@ -70,7 +90,15 @@ class AuditLogView(QWidget):
                 entry.entry_hash[:16] + "...",
             ]
             for col, value in enumerate(values):
-                self._table.setItem(row, col, QTableWidgetItem(value))
+                item = QTableWidgetItem(value)
+                if col in (0, 1, 5):
+                    item.setFont(mono_font(12))
+                    item.setForeground(QColor(COLORS["text_muted"]))
+                if col == 5:
+                    item.setToolTip(entry.entry_hash)
+                self._table.setItem(row, col, item)
+        self._count_badge.set(f"{len(entries)} entries", "primary" if entries else "neutral")
+        self._empty.setVisible(not entries)
 
     def _verify_chain(self) -> None:
         result = self._ledger.verify_chain()

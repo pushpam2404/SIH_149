@@ -8,16 +8,14 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QHBoxLayout,
-    QLabel,
     QMessageBox,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from app.config.settings import REPORTS_DIR
 from app.core.audit.ledger import AuditLedger
-from app.core.devices.enumerator import disk_image_info, get_backend, list_devices
+from app.core.devices.enumerator import disk_image_info, get_backend, list_devices, raw_access_problem
 from app.core.devices.fingerprint import fingerprint
 from app.core.devices.safety import classify_target
 from app.core.erasure.drive_eraser import DriveEraseResult, run_drive_erase
@@ -28,6 +26,7 @@ from app.core.reporting.report_builder import build_drive_erase_report
 from app.gui.widgets.confirm_dialog import ConfirmDestructiveDialog
 from app.gui.widgets.device_table import DeviceTable
 from app.gui.widgets.progress_panel import ProgressPanel
+from app.gui.widgets.ui import Callout, Card, Page, button, field_label
 from app.gui.workers import Worker
 from app.utils.logging_setup import get_logger
 
@@ -42,43 +41,79 @@ class DriveEraserView(QWidget):
         self._worker: Worker | None = None
         self._selected_image_path: str | None = None
 
-        layout = QVBoxLayout(self)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        page = Page(
+            "Drive Eraser",
+            "Overwrite an entire removable drive or disk image, verify the result, and generate a report. "
+            "The system/boot drive is always blocked.",
+        )
+        root.addWidget(page)
 
-        button_row = QHBoxLayout()
-        refresh_btn = QPushButton("Refresh Devices")
+        refresh_btn = button("Refresh Devices", icon_name="refresh")
         refresh_btn.clicked.connect(self._refresh_devices)
-        button_row.addWidget(refresh_btn)
+        page.header_actions.addWidget(refresh_btn)
 
-        pick_image_btn = QPushButton("Select Disk Image File...")
+        pick_image_btn = button("Select Disk Image File...", icon_name="disc")
         pick_image_btn.clicked.connect(self._pick_disk_image)
-        button_row.addWidget(pick_image_btn)
-        button_row.addStretch()
-        layout.addLayout(button_row)
+        page.header_actions.addWidget(pick_image_btn)
 
+        targets = Card(
+            "Targets",
+            "Select one row marked SAFE. Rows marked BLOCKED can never be erased.",
+            icon_name="hard-drive",
+        )
         self._table = DeviceTable()
-        layout.addWidget(self._table)
+        self._table.setMinimumHeight(170)
+        targets.body.addWidget(self._table)
+        page.body.addWidget(targets, 3)
 
-        options_row = QHBoxLayout()
-        options_row.addWidget(QLabel("Wipe standard:"))
+        lower = QHBoxLayout()
+        lower.setSpacing(16)
+
+        options = Card("Wipe options", icon_name="layers")
+        options.body.addWidget(field_label("Wipe standard"))
         self._standard_combo = QComboBox()
         for standard in list_standards():
             self._standard_combo.addItem(standard.display_name, userData=standard.id)
-        options_row.addWidget(self._standard_combo)
+        options.body.addWidget(self._standard_combo)
 
         self._simulation_checkbox = QCheckBox("Simulation mode (wipe a scratch copy, not the original)")
         self._simulation_checkbox.setChecked(True)
-        options_row.addWidget(self._simulation_checkbox)
-        options_row.addStretch()
-        layout.addLayout(options_row)
+        options.body.addWidget(self._simulation_checkbox)
 
-        erase_btn = QPushButton("Erase Selected Target")
+        self._simulation_on_note = Callout(
+            "Simulation is <b>ON</b>: a scratch copy of a disk image is wiped, the original stays untouched.",
+            tone="warning",
+            icon_name="flask",
+        )
+        self._simulation_off_note = Callout(
+            "Simulation is <b>OFF</b>: the selected target will be <b>really</b> overwritten.",
+            tone="danger",
+        )
+        options.body.addWidget(self._simulation_on_note)
+        options.body.addWidget(self._simulation_off_note)
+        self._simulation_checkbox.toggled.connect(self._update_simulation_note)
+        self._update_simulation_note(self._simulation_checkbox.isChecked())
+        options.body.addStretch()
+
+        erase_btn = button("Erase Selected Target", variant="danger", icon_name="trash", large=True)
         erase_btn.clicked.connect(self._start_erase)
-        layout.addWidget(erase_btn)
+        options.body.addWidget(erase_btn)
+        lower.addWidget(options, 2)
 
+        progress_card = Card("Progress", icon_name="activity")
         self._progress = ProgressPanel()
-        layout.addWidget(self._progress)
+        progress_card.body.addWidget(self._progress)
+        lower.addWidget(progress_card, 3)
+
+        page.body.addLayout(lower, 2)
 
         self._refresh_devices()
+
+    def _update_simulation_note(self, simulation_on: bool) -> None:
+        self._simulation_on_note.setVisible(simulation_on)
+        self._simulation_off_note.setVisible(not simulation_on)
 
     def _refresh_devices(self) -> None:
         try:
@@ -106,6 +141,19 @@ class DriveEraserView(QWidget):
         if not verdict.allowed:
             QMessageBox.critical(self, "Target refused", f"This target cannot be erased: {verdict.reason}")
             return
+
+        if not info.is_disk_image:
+            if self._simulation_checkbox.isChecked():
+                QMessageBox.information(
+                    self, "Simulation mode is on",
+                    "Simulation mode only works with disk image files. To erase a real drive, "
+                    "turn Simulation mode off explicitly — or select a disk image instead.",
+                )
+                return
+            problem = raw_access_problem(info.path, write=True)
+            if problem:
+                QMessageBox.warning(self, "Not enough permissions", problem)
+                return
 
         confirm_token = fingerprint(info)[:8]
         warning = (

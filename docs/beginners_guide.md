@@ -5,7 +5,7 @@ very technical. It explains:
 
 1. What the app does, in plain words
 2. How to start it
-3. What each tab is for
+3. What each page is for
 4. A hands-on practice exercise: delete one photo the normal way, securely
    erase another photo, and then see which one can be recovered
 
@@ -37,9 +37,9 @@ The two sides are meant to be used **together**, to show the difference:
 a normally deleted file can often be recovered, a securely erased file
 cannot.
 
-> **Important: the Recovery tab is not an "undo" button.**
+> **Important: the Recovery page is not an "undo" button.**
 > If you securely erase a file with this app, it is gone. The Recovery
-> tab will not bring it back — that is the whole point of secure
+> page will not bring it back — that is the whole point of secure
 > erasing. The only way to get it back is from a copy somewhere else
 > (Time Machine backup, iCloud, the original download, your phone, etc.).
 > **Practice only on files you have copies of.**
@@ -79,16 +79,20 @@ closes the app.
 
 ---
 
-## Part 3: The tabs, explained
+## Part 3: The pages, explained
 
-| Tab | What it's for |
+Use the menu on the left side of the app to switch between pages. The
+badge at the bottom of that menu reminds you that **Simulation mode** is
+on by default.
+
+| Page | What it's for |
 |---|---|
-| **Dashboard** | Overview and recent activity. |
+| **Dashboard** | A summary at the top (how many actions are logged, whether the audit log is intact, how many reports exist, the last action), shortcuts to the three main tools, and a list of recent activity. On a fresh install it's empty and fills up as you use the app. |
 | **Drive Eraser** | Wipes a **whole** drive or disk image. Your Mac's own internal drive is always shown as `BLOCKED` and can never be picked. "Simulation mode" is on by default, which wipes a copy instead of the real thing. |
-| **File & Folder Eraser** | Securely erases **individual files or a folder**. Use this for normal files like photos and documents. |
-| **Recovery** | Scans a disk image or a plugged-in drive for deleted files. |
+| **File & Folder Eraser** | Securely erases **individual files or a folder**. Use this for normal files like photos and documents. The red **Securely Erase Queue** button starts the erase. |
+| **Recovery** | Scans a disk image or a plugged-in drive for deleted files. Results appear in two tabs at the bottom: **Recovered Files** and **PII / Metadata Artifacts**, each with a count. |
 | **Audit Log** | A record of everything the app did. **Verify Chain Integrity** checks if anyone edited the record. |
-| **Reports** | PDF reports the app created after each erase or scan. |
+| **Reports** | PDF reports the app created after each erase or scan. Double-click one to open it. |
 
 ### "Why can't I select my file?" (greyed-out files)
 
@@ -96,12 +100,12 @@ The **Select Disk Image File...** button (Drive Eraser) and **Browse
 Image...** button (Recovery) only show disk image files (`.img`, `.dd`,
 `.dmg`) by default. Everything else looks grey.
 
-- That's on purpose — these tabs work on **whole disks**, not single
+- That's on purpose — these pages work on **whole disks**, not single
   photos or documents.
 - If you really need another file: at the bottom of the file window,
   click the **"Disk images (*.img *.dd *.dmg)"** dropdown and change it to
   **"All files (*)"**.
-- **Want to erase a normal file?** Use the **File & Folder Eraser** tab
+- **Want to erase a normal file?** Use the **File & Folder Eraser** page
   instead. Its file picker shows all files.
 
 ---
@@ -151,7 +155,7 @@ printed `/dev/disk4`, then `/dev/diskN` means `/dev/disk4`:
 > **Why is it usually 4?** Your Mac numbers every disk it knows about,
 > starting from 0. On a typical Apple Silicon Mac, **disk0 to disk3 are
 > already taken by the Mac's own internal drive** (you can see them in
-> the app's **Drive Eraser** tab, marked `BLOCKED`, or by running
+> the app's **Drive Eraser** page, marked `BLOCKED`, or by running
 > `diskutil list`). So the pretend stick gets the next free number,
 > which is usually **4**.
 >
@@ -243,14 +247,14 @@ files starting with `._` — that's normal, ignore them.)
 
 ### Step 6 — Securely erase photo2 (in the app)
 
-1. In the app, open the **File & Folder Eraser** tab.
+1. In the app, click **File & Folder Eraser** in the left menu.
 2. Click **Add Files...**
 3. In the file window, press **⌘ ⇧ G** (Command + Shift + G), type
    `/Volumes/DEMOVOL`, press Enter.
 4. Select **photo2.jpg** and click **Open**.
 5. Click **Securely Erase Queue**.
 6. In the confirmation window, type exactly `ERASE FILES`, tick the
-   checkbox, and click **OK**.
+   checkbox, and click **Erase permanently**.
 7. You'll see `Erase complete — PASS`. A warning window about filesystem
    limits may pop up — that's expected, read it and close it.
 
@@ -283,14 +287,16 @@ stick first. Ejecting makes sure everything is saved into `demo.img`.
 
 ### Step 9 — Scan it for deleted files
 
-1. In the app, open the **Recovery** tab.
+1. In the app, click **Recovery** in the left menu.
 2. Click **Browse Image...** and pick **demo.img** on your Desktop.
 3. Click **Start Recovery Scan**. On a 64 MB image this takes a few
    seconds.
 
 ### Step 10 — Read the results
 
-What we saw when we tested this:
+The results are in the **Recovered Files** tab at the bottom of the
+Recovery page. The **Confidence** column is coloured: green for high,
+amber for medium, grey for low. What we saw when we tested this:
 
 | What you'll see | What it means |
 |---|---|

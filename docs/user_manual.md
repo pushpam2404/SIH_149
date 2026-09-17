@@ -18,6 +18,27 @@ relying on it for anything beyond evaluation. In short:
 - Certificates follow the structure of a BSA Section 63 certificate but
   are not legally reviewed or digitally signed.
 
+## Finding Your Way Around
+
+The app has a menu on the left with six pages, grouped as **Erase**
+(Drive Eraser, File & Folder Eraser), **Recover** (Recovery) and
+**Evidence** (Audit Log, Reports), plus the **Dashboard** at the top.
+Every page has a short description under its title, and each
+long-running job shows a **Progress** card with a status badge (Idle,
+Running, Done, Failed) and a log of what happened.
+
+The **Dashboard** shows four summary tiles: the number of audit entries,
+whether the audit chain verifies, how many PDF reports exist, and the
+last logged action. Below them are shortcuts to the three modules and
+the 15 most recent audit entries. All of this is read from the real
+audit log and `reports/` folder; there is no sample data, so a fresh
+install shows an empty dashboard.
+
+Colours are used consistently: blue buttons are normal main actions, red
+buttons erase data, amber notes are warnings. Status is always also
+written in text (for example `SAFE` / `BLOCKED`), not shown by colour
+alone.
+
 ## Installation & System Requirements
 
 - **macOS** is the only platform this build has been tested on. Linux and
@@ -33,7 +54,7 @@ relying on it for anything beyond evaluation. In short:
 |---|---|
 | `pytsk3` | No filesystem-aware recovery; only PhotoRec carving |
 | `photorec` | No signature carving; only filesystem-aware recovery |
-| `bulk_extractor` | The PII / Metadata Artifacts table stays empty |
+| `bulk_extractor` | The PII / Metadata Artifacts tab stays empty |
 | `python-magic`, `magika` | Classification uses only the built-in signature table |
 | `ppdeep` | Fuzzy hash column shows N/A |
 
@@ -53,7 +74,8 @@ bypassed.
 
 **Be careful:** any external drive the OS reports as removable *is*
 allowed, including one holding data you care about. The type-to-confirm
-dialog is the only thing between you and a wipe. Double-check the device
+dialog (its **Erase permanently** button stays disabled until you type the
+exact text shown and tick the checkbox) is the only thing between you and a wipe. Double-check the device
 name and size.
 
 **Simulation mode** (on by default) makes a disk-image erase run on a
@@ -62,14 +84,19 @@ cannot be used on a real device; turn it off explicitly for real hardware.
 
 ## Module 1: Drive Eraser
 
-1. Open the **Drive Eraser** tab. Click **Refresh Devices** to list
+1. Open **Drive Eraser** from the left menu. Click **Refresh Devices** to list
    attached drives, or **Select Disk Image File...** to pick an image.
-2. Select a row. Only rows marked `SAFE` can be erased.
-3. Choose a wipe standard (single pass zero/random, NIST 800-88 Clear, or
-   DoD 5220.22-M) and check the Simulation Mode box is set as you intend.
-4. Click **Erase Selected Target**, type the confirmation code, tick the
-   acknowledgment box, and confirm.
-5. Progress and per-pass verification results appear in the log panel.
+2. In the **Targets** card, select a row. Only rows marked `SAFE` (green)
+   can be erased; `BLOCKED` rows (red) show the reason, and hovering shows
+   the full text.
+3. In the **Wipe options** card, choose a wipe standard (single pass
+   zero/random, NIST 800-88 Clear, or DoD 5220.22-M) and check the
+   Simulation Mode box is set as you intend. The note under the checkbox
+   is amber while simulation is on and turns red when it is off.
+4. Click the red **Erase Selected Target** button, type the confirmation
+   code, tick the acknowledgment box, and click **Erase permanently**.
+5. Progress and per-pass verification results appear in the **Progress**
+   card.
    A PDF and JSON report are written to `reports/`.
 
 What "PASS" means: every pass completed and a random sample of blocks read
@@ -83,10 +110,14 @@ DoD 5220.22-M takes about three times that.
 
 ## Module 2: File & Folder Eraser
 
-1. Open the **File & Folder Eraser** tab.
+1. Open **File & Folder Eraser** from the left menu.
 2. **Add Files...** for individual files, or **Add Folder...** to queue an
-   entire folder (its contents are erased and the folder removed).
-3. Click **Securely Erase Queue**, confirm, and watch progress. Expect
+   entire folder (its contents are erased and the folder removed). The
+   badge on the **Erase queue** card shows how many files (or "1 folder")
+   are queued.
+3. Click the red **Securely Erase Queue** button, type `ERASE FILES` (or
+   `ERASE FOLDER`), tick the box, click **Erase permanently**, and watch
+   the **Progress** card. Expect
    roughly a quarter of a second per file even for tiny files (filesystem
    checks run for each one).
 4. If the filesystem can keep old copies of data, a **"Erase Complete with
@@ -103,15 +134,18 @@ renamed with metadata stripped", not "physically overwritten".
 
 ## Module 3: Recovery
 
-1. Open the **Recovery** tab. Browse to a disk image, or pick an attached
-   device from the dropdown.
+1. Open **Recovery** from the left menu. In the **Source** card, browse to
+   a disk image, or pick an attached device from the dropdown.
 2. Click **Start Recovery Scan**. Installed engines run in turn: pytsk3
    (filesystem-aware), PhotoRec (signature carving), bulk_extractor
    (PII/metadata artifacts).
-3. **Recovered Files** table: name, engine, file type, size, confidence
+3. **Recovered Files** tab (in the **Results** card; the tab title shows
+   the number of results): name, engine, file type, size, confidence
    score (0–100 with high/medium/low), fragmentation flag, SHA-256, and
    fuzzy hash ("skipped (>4 MiB)" for large files, to keep scans fast).
-4. **PII / Metadata Artifacts** table (bulk_extractor only): click a row to
+   Confidence is coloured green (high), amber (medium) or grey (low).
+   Hashes are shortened in the table; hover over one to see it in full.
+4. **PII / Metadata Artifacts — Bulk Extractor** tab (bulk_extractor only): click a row to
    preview the extracted feature file (for example, email addresses).
 5. Select a recovered file and click **Export Selected File...**, or click
    **Generate Forensic Report** for a PDF/JSON report.
@@ -136,7 +170,8 @@ a hardware write-blocker.
 
 ## Audit Log, Certificates & Reports
 
-- The **Audit Log** tab lists every logged action with its hash.
+- The **Audit Log** page lists every logged action with its hash (hover
+  over a hash to see it in full). Click a row to see the entry's details.
 - **Verify Chain Integrity** recomputes every entry's hash, chain link and
   MAC tag, and names the first entry that fails. It *detects* tampering
   after the fact; it cannot prevent someone with file access from
@@ -146,8 +181,8 @@ a hardware write-blocker.
   with that target's audit entries and an embedded list of limitations.
   Enter a wipe status you have actually verified; the tool does not check
   what you type against the audit result.
-- The **Reports** tab lists generated PDFs; select one and click
-  **Open PDF**.
+- The **Reports** page lists generated PDFs; select one and click
+  **Open PDF**, or double-click it.
 
 Timestamps come from this computer's clock. No trusted timestamping
 authority is used.
@@ -168,7 +203,7 @@ while the source image stays intact. Simulation runs are labelled
   audit entry for `engines_unavailable`. If both `pytsk3` and `photorec`
   are listed, no engine ran; re-run `setup_env.sh`. A genuinely wiped or
   empty image also returns 0.
-- **Artifacts table is empty** — `bulk_extractor` is not installed, or the
+- **PII / Metadata Artifacts tab is empty** — `bulk_extractor` is not installed, or the
   image contained no emails/URLs/other features.
 - **Device table is empty** — device enumeration failed (see terminal
   output). On macOS this usually means `diskutil` isn't on PATH.

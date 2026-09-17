@@ -10,6 +10,11 @@ exists but nothing in the app calls it), **Not implemented**.
 ```
 app/gui/     PySide6 views — no business logic; long jobs run on a QThread
              (app/gui/workers.py) so the UI thread never blocks on I/O.
+  theme.py   Colour tokens, bundled fonts, the Qt stylesheet (see GUI & Theme).
+  widgets/   Shared UI pieces: ui.py (page/card/badge/stat tile helpers),
+             icons.py (inline SVG icons), device table, progress panel,
+             type-to-confirm dialog.
+  assets/    Bundled fonts (Fira Sans, Fira Code) and a checkbox icon.
 app/core/    Pure Python, no Qt imports — independently testable.
   devices/   Cross-platform device enumeration + safe-target enforcement.
   erasure/   Wipe standards, chunked overwrite I/O, verification,
@@ -140,7 +145,7 @@ Limitations:
 
 ## Certificates — Verified (generation), not legally reviewed
 
-`app/core/audit/certificate.py`, triggered from the Audit Log tab,
+`app/core/audit/certificate.py`, triggered from the Audit Log page,
 writes a JSON certificate *structured after* the BSA 2023 Section 63
 certificate: operator, organization, target, the target's audit entries
 (hash, result, standard), whether the chain verified at issue, and an
@@ -185,6 +190,36 @@ similarity. Fuzzy hashes are only computed for files up to 4 MiB, because
 `ppdeep` is pure Python and took 10+ minutes on a 32 MB carved file.
 Fuzzy hashes are displayed and stored, but the app has no "compare against
 a known file" feature.
+
+## GUI & Theme — Manually checked, no automated GUI tests
+
+- **Layout:** `main_window.py` uses a left sidebar (`QButtonGroup` of
+  checkable buttons) and a `QStackedWidget` instead of a tab bar. Switching
+  to the Dashboard, Audit Log or Reports refreshes that page, as before.
+  Dashboard module cards emit `navigate_requested(key)`.
+- **Styling:** `theme.apply_theme()` sets the Fusion style, a dark
+  `QPalette`, and one application stylesheet built from the `COLORS`
+  tokens. Views set only object names / dynamic properties (for example
+  `variant="danger"`), not colours. Fusion is used so the stylesheet
+  renders the same on every platform instead of mixing with native macOS
+  controls. Native file pickers still follow the OS appearance.
+- **Contrast:** colour pairs were checked with the WCAG relative-luminance
+  formula: white on the blue (#2563EB) and red (#DC2626) buttons is 5.2:1
+  and 4.8:1; body text on cards is 14.6:1; muted and subtle text is at
+  least 5:1. Status is always written as text as well as shown by colour.
+- **Fonts:** Fira Sans (UI) and Fira Code (paths, hashes, logs) are loaded
+  from `app/gui/assets/fonts/` (SIL Open Font License, `OFL.txt`). If they
+  are missing the app falls back to system fonts. `sih149.spec` already
+  bundles `app/gui/assets`.
+- **Icons:** Lucide icons (ISC licence, `app/gui/assets/icons/LUCIDE_LICENSE.txt`)
+  embedded as SVG path data and rendered with `QtSvg`, so they can take any
+  theme colour. No emoji are used as icons.
+- **What was checked (2026-09-17):** every page rendered to images
+  offscreen and on macOS and inspected by eye; a throwaway script (not in
+  `tests/`) confirmed the confirm dialog only enables its button for the
+  exact token plus checkbox, the queue badge and empty states update,
+  simulation mode still starts checked, and sidebar/dashboard navigation
+  switch pages. Linux and Windows rendering has not been checked.
 
 ## Report Generation Pipeline
 

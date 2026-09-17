@@ -49,7 +49,7 @@ Be aware of these before trusting a component:
 
 | Component | Coverage |
 |---|---|
-| GUI (all views, dialogs, buttons) | None automated. Manually smoke-tested only. |
+| GUI (all views, dialogs, buttons) | None automated. Manually smoke-tested only. After the 2026-09-17 redesign, pages were rendered and inspected, and a one-off script checked the confirm dialog, queue state, simulation default and navigation; that script is not part of `tests/`. |
 | Certificate generation (`certificate.py`) | None automated. Checked by hand once. |
 | HMAC tag verification failures (wrong key, missing tag) | Not tested; only the success path runs. |
 | Filesystem warnings (`fs_aware.py`) | Code runs during file-eraser tests on APFS; warning content is not asserted. NTFS/ext4 branches never run. |

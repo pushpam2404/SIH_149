@@ -88,7 +88,7 @@ ledger, consensus, or external anchoring.
 
 ## Certificates (BSA 2023 Section 63-style)
 
-The Audit Log tab generates a JSON certificate for a chosen target. It
+The Audit Log page generates a JSON certificate for a chosen target. It
 contains operator/organization details, the target's audit entries with
 their hashes, whether the audit chain verified at issue time, and an
 embedded `limitations` list.
