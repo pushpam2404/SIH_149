@@ -41,13 +41,21 @@ alone.
 
 ## Installation & System Requirements
 
-- **macOS** is the only platform this build has been tested on. Linux and
-  Windows code paths exist but are untested (see
-  `technical_documentation.md`, Platform Support Matrix).
-- Python 3.11 or 3.12 (newer interpreters may lack `pytsk3` wheels).
-- Run `./scripts/setup_env.sh` to install `sleuthkit`, `testdisk`,
-  `libmagic`, and (optionally) `bulk_extractor`, then
-  `pip install -r requirements.txt`.
+- **Windows 10/11, Linux and macOS.** The automated test suite runs on all
+  three in CI (GitHub Actions: Windows Server, Ubuntu, macOS). Day-to-day
+  development and every manual walkthrough were done on macOS. Erasing a
+  *physical* drive has not been tried on any platform — see
+  `technical_documentation.md`, Platform Support Matrix.
+- Python 3.10–3.13 (CI uses 3.12).
+- **Windows:** `powershell -ExecutionPolicy Bypass -File scripts\setup_env.ps1`
+  creates `.venv` and installs everything. PhotoRec is optional: download
+  "TestDisk & PhotoRec" from cgsecurity.org and add the folder containing
+  `photorec_win.exe` to PATH. Start the app from an **Administrator**
+  terminal if you want to scan or erase a physical drive.
+- **Linux / macOS:** `./scripts/setup_env.sh` installs `testdisk`
+  (PhotoRec), `libmagic`, and on Linux the Qt runtime libraries; then
+  `python3 -m venv .venv` and `.venv/bin/pip install -r requirements.txt`.
+  Scanning or erasing a physical drive needs `sudo`.
 - Optional components and what you lose without them:
 
 | Component | If missing |
@@ -55,7 +63,7 @@ alone.
 | `pytsk3` | No filesystem-aware recovery; only PhotoRec carving |
 | `photorec` | No signature carving; only filesystem-aware recovery |
 | `bulk_extractor` | The PII / Metadata Artifacts tab stays empty |
-| `python-magic`, `magika` | Classification uses only the built-in signature table |
+| `python-magic`, `magika` | Classification uses only the built-in signature table (python-magic is not installed on Windows) |
 | `ppdeep` | Fuzzy hash column shows N/A |
 
 The app keeps running when these are missing and lists unavailable
@@ -206,7 +214,12 @@ while the source image stays intact. Simulation runs are labelled
 - **PII / Metadata Artifacts tab is empty** — `bulk_extractor` is not installed, or the
   image contained no emails/URLs/other features.
 - **Device table is empty** — device enumeration failed (see terminal
-  output). On macOS this usually means `diskutil` isn't on PATH.
+  output). macOS: `diskutil` isn't on PATH. Windows: PowerShell couldn't run
+  `Get-Disk` (it needs the Storage module, present on Windows 8+ and
+  Server 2012+). Linux: `lsblk` is missing.
+- **"Can't read this device" / "Not enough permissions"** — reading or
+  erasing a physical drive needs Administrator (Windows) or root (Linux,
+  macOS). Disk image files don't.
 - **Real device erase fails with a permission error** — raw device writes
   need elevated permissions.
 

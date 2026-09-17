@@ -25,7 +25,10 @@ app/core/    Pure Python, no Qt imports — independently testable.
   reporting/ Generic Report object -> PDF (reportlab) and JSON.
 app/config/  Constants and runtime settings (paths, simulation-mode default).
 app/utils/   Logging, entropy math, subprocess helpers.
-scripts/     setup_env.sh (native deps), benchmark.py (performance numbers).
+scripts/     setup_env.sh (Linux/macOS deps), setup_env.ps1 (Windows setup),
+             benchmark.py (performance numbers), check_platform.py (real-machine
+             device/safety self-check), make_practice_image.py (demo FAT image).
+.github/     CI workflow: tests + check_platform on Windows, Ubuntu, macOS.
 ```
 
 Every destructive action and every recovery scan calls
@@ -34,7 +37,7 @@ orchestrators `drive_eraser.py`, `file_eraser.py` and `scan_service.py`
 each log directly), not by any mechanism that makes bypassing it
 impossible.
 
-## Device Safety & System-Drive Detection — Verified (macOS); Windows/Linux see below
+## Device Safety & System-Drive Detection — Verified on Windows, Linux and macOS (system/internal disks); USB detection unit-tested only
 
 `app/core/devices/backend_base.py` defines one normalized `DeviceInfo`
 dataclass that every platform backend returns, so `safety.py` never has
@@ -243,11 +246,16 @@ a known file" feature.
   embedded as SVG path data and rendered with `QtSvg`, so they can take any
   theme colour. No emoji are used as icons.
 - **What was checked (2026-09-17):** every page rendered to images
-  offscreen and on macOS and inspected by eye; a throwaway script (not in
-  `tests/`) confirmed the confirm dialog only enables its button for the
-  exact token plus checkbox, the queue badge and empty states update,
-  simulation mode still starts checked, and sidebar/dashboard navigation
-  switch pages. Linux and Windows rendering has not been checked.
+  offscreen and on macOS and inspected by eye. `tests/gui/test_gui_smoke.py`
+  (pytest-qt, offscreen) checks the confirm dialog only enables its button
+  for the exact token plus checkbox, queue badge and empty states,
+  simulation mode starting checked, and sidebar/dashboard navigation — on
+  Windows, Linux and macOS in CI. Nobody has *looked* at the GUI on a
+  Windows or Linux desktop; fonts are bundled, so text should match, but
+  native file dialogs will look like each OS's own.
+- **Windows specifics:** the process sets its own AppUserModelID so the
+  taskbar shows the app rather than python.exe; subprocesses (PowerShell,
+  PhotoRec) start with `CREATE_NO_WINDOW` so no console windows flash.
 
 ## Report Generation Pipeline
 
@@ -259,15 +267,27 @@ notice (simulation mode, best-effort erasure, or evidentiary data).
 
 ## Platform Support Matrix
 
-| Capability | macOS | Linux | Windows |
+Evidence levels: **CI** = GitHub-hosted runner (virtual machine, virtual
+disks), see `validation_testing.md`; **dev Mac** = run by hand on the
+Apple M4 development machine; **unit** = tested with recorded tool output
+only.
+
+| Capability | Windows | Linux | macOS |
 |---|---|---|---|
-| Device enumeration | Verified (`diskutil -plist`) | Implemented, untested (`lsblk -J`) | Implemented, untested (PowerShell `Get-Disk`) |
-| Raw device erase | Implemented; no recorded physical-drive run; needs elevated permissions | Implemented, untested | Implemented, untested; plain `open()` on `\\.\PhysicalDriveN` is unlikely to work for writes without volume locking |
-| Disk image erase (simulation) | Verified | Should work (pure Python), untested | Should work (pure Python), untested |
-| Test fixture image builder | Verified (`hdiutil`) | Not implemented | Not implemented |
-| pytsk3 / PhotoRec recovery | Verified | Implemented, untested | Untested |
-| bulk_extractor | Untested (not installed) | Untested | Untested |
-| Filesystem warnings | APFS path runs during tests (output not asserted) | ext4 implemented, untested | NTFS implemented, untested |
+| Install via setup script | Verified (CI runs `setup_env.ps1`) | apt path used in CI (`setup_env.sh` itself not run in CI); dnf path untested | Homebrew packages installed in CI (the script itself isn't run there); dev Mac |
+| Device enumeration | Verified (CI, PowerShell `Get-Disk` JSON) | Verified (CI, `lsblk -J`) | Verified (CI + dev Mac, `diskutil -plist`) |
+| System disk blocked | Verified (CI) | Verified (CI) | Verified (CI + dev Mac) |
+| USB/removable drive recognised as SAFE | Unit only | Unit only | Disk images: CI; USB stick: not recorded |
+| Raw device read (recovery scan of a drive) | Implemented, untested (needs Administrator) | Implemented, untested (needs root) | One scan of `/dev/disk4` (an attached disk image) is in the dev Mac's audit log; its result wasn't recorded |
+| Raw device erase | Implemented, untested (Administrator; disk taken offline via `Set-Disk`) | Implemented, untested (root) | Implemented, untested (root) |
+| Disk image erase (simulation) | Verified (CI tests) | Verified (CI tests) | Verified (CI tests + dev Mac) |
+| Test fixture image builder | Pure-Python FAT16: verified (CI) | Pure-Python FAT16: verified (CI) | `hdiutil` and pure-Python: verified |
+| pytsk3 recovery | Verified (CI) | Verified (CI) | Verified (CI + dev Mac) |
+| PhotoRec | Not installed in CI; binary name `photorec_win` recognised (unit) | Installed in CI (apt `testdisk`) and run by the pipeline tests; its output isn't asserted | Verified (CI + dev Mac) |
+| bulk_extractor | Untested | Untested | Untested |
+| Filesystem detection | Verified NTFS (CI) | Verified ext4 (CI) | Verified APFS (CI + dev Mac) |
+| GUI | Builds headless (CI); never viewed on a real Windows desktop | Builds headless (CI); never viewed on a Linux desktop | Builds headless (CI); used on the dev Mac |
+| Packaged build (`sih149.spec`) | Not built | Not built | Not built |
 
 ## Known Gaps (not implemented)
 

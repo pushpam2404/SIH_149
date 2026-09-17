@@ -25,6 +25,9 @@ def main() -> int:
     print(proc.stdout)
     title = f"{kind} on {platform.system()} ({platform.release()})"
     lines = [line.strip("= ").strip() for line in proc.stdout.splitlines() if KEEP[kind](line.strip())]
+    # GitHub keeps at most 10 annotations per step: put the verdict/summary lines first.
+    summary_markers = (" passed", " failed", "All platform", "FAIL")
+    lines.sort(key=lambda line: 0 if any(marker in line for marker in summary_markers) else 1)
     for line in lines[:9]:
         level = "error" if proc.returncode else "notice"
         # Newlines/colons would break the workflow command syntax.

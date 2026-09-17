@@ -98,3 +98,30 @@ def test_default_scratch_copy_goes_to_data_dir_not_working_directory(tmp_path, m
     assert result.ok
     assert Path(result.effective_target_path).parent == data_dir / "simulation"
     assert not (elsewhere / "data").exists()
+
+
+def test_simulation_mode_is_refused_for_a_real_device(tmp_path):
+    import pytest
+    from app.core.devices.backend_base import DeviceInfo
+    from app.core.erasure.drive_eraser import SimulationModeMismatchError
+
+    usb = DeviceInfo(
+        path="/dev/fake-usb", display_name="USB", size_bytes=1024, is_disk_image=False,
+        is_removable=True, is_internal=False, is_system_container=False,
+    )
+
+    class _AllowingBackend(MacOSDeviceBackend):
+        def is_system_drive(self, info):
+            return False
+
+        def open_raw(self, info, mode):
+            raise AssertionError("simulation mode must refuse before any device is opened")
+
+    ledger = AuditLedger(tmp_path / "audit.sqlite3")
+    try:
+        with pytest.raises(SimulationModeMismatchError):
+            run_drive_erase(usb, _AllowingBackend(), standard_id="single_pass_zero", ledger=ledger,
+                            simulation_mode=True, user_confirmed=True)
+        assert ledger.get_entries() == []
+    finally:
+        ledger.close()

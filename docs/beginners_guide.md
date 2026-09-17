@@ -12,9 +12,10 @@ very technical. It explains:
 You do **not** need to understand programming. You will need to copy and
 paste a few commands into the **Terminal** app. Each command is explained.
 
-> **Tested on:** macOS only. The practice exercise below was run
-> step by step on a Mac on 2026-09-17. Linux and Windows are not covered
-> here.
+> **Which computers?** The app runs on Windows, Linux and macOS (its
+> automated tests run on all three). The full practice exercise in Part 4
+> uses Mac-only commands and was run step by step on a Mac on 2026-09-17.
+> **On Windows or Linux, use Part 4B** instead.
 
 ---
 
@@ -59,23 +60,34 @@ cannot.
 
 ## Part 2: Starting the app
 
-Open the **Terminal** app (press `⌘ Space`, type `Terminal`, press Enter)
-and run:
+**On a Mac:** open the **Terminal** app (press `⌘ Space`, type `Terminal`,
+press Enter) and run:
 
 ```bash
 cd ~/Desktop/SIH_149
 .venv/bin/python -m app.main
 ```
 
-- The first line moves Terminal into the project folder. If you put the
-  project somewhere else, change the path.
+**On Windows:** open **PowerShell** (press the Windows key, type
+`PowerShell`, press Enter) and run:
+
+```powershell
+cd $HOME\Desktop\SIH_149
+.venv\Scripts\python.exe -m app.main
+```
+
+**On Linux:** open a terminal and run the same commands as on a Mac.
+
+- The first line moves into the project folder. If you put the project
+  somewhere else, change the path.
 - The second line starts the app.
 
 If it says something is missing, follow the setup steps in the
-[README](../README.md) first.
+[README](../README.md) first (on Windows that's a single script:
+`scripts\setup_env.ps1`).
 
-**Keep this Terminal window open** while you use the app — closing it
-closes the app.
+**Keep this window open** while you use the app — closing it closes the
+app.
 
 ---
 
@@ -357,6 +369,79 @@ rm ~/Desktop/demo.img
 ```
 
 Then go back to Step 1. (Make sure it's ejected first — Step 8.)
+
+---
+
+## Part 4B: Practice on Windows or Linux
+
+The Mac exercise above uses `hdiutil` and `diskutil`, which only exist on
+macOS. On Windows or Linux there are two options.
+
+### Option 1 — Recovery demo with a practice image (easy, no admin needed)
+
+The project includes a script that builds a small practice disk image
+containing a **deleted** copy of any photo you give it. Nothing gets
+mounted and no admin rights are needed.
+
+1. In PowerShell (Windows) or a terminal (Linux), go to the project folder
+   (see Part 2), then run — replacing the path with a real picture under
+   15 MB:
+
+   **Windows:**
+   ```powershell
+   .venv\Scripts\python.exe -m scripts.make_practice_image "C:\Users\you\Pictures\holiday.jpg"
+   ```
+   **Linux:**
+   ```bash
+   .venv/bin/python -m scripts.make_practice_image ~/Pictures/holiday.jpg
+   ```
+
+   It prints where it saved `practice.img` (in the project folder).
+
+2. In the app, click **Recovery** in the left menu → **Browse Image...** →
+   pick `practice.img` → **Start Recovery Scan**.
+3. You should see `_HOTO1.JPG` (engine **pytsk3**) and, if PhotoRec is
+   installed, an `f….jpg` (engine **photorec**) — both type **JPEG**,
+   confidence **100**. Select one and click **Export Selected File...** to
+   get your photo back.
+
+We tested this on a Mac with a 10 MB JPEG: both engines returned the photo
+byte-for-byte. The script itself is covered by automated tests on Windows
+and Linux too.
+
+**What this does *not* show:** the photo on this image was deleted the
+normal way. It does not show the File & Folder Eraser beating recovery —
+for that, use Option 2.
+
+### Option 2 — Full erase-vs-recover on a spare USB stick
+
+⚠️ **Use a USB stick with nothing on it you need.** Its contents will be
+deleted. We have **not** run this option on Windows or Linux ourselves, so
+treat it as untested.
+
+1. Format the stick as **FAT32** (Windows: right-click it in File Explorer →
+   **Format…**; Linux: the Disks app).
+2. Copy two photos onto it: `photo1.jpg` and `photo2.jpg`.
+3. **Erase photo2 first:** in the app, **File & Folder Eraser** →
+   **Add Files...** → pick `photo2.jpg` on the stick → **Securely Erase
+   Queue** → type `ERASE FILES`, tick the box, **Erase permanently**.
+4. **Then delete photo1 normally:** Windows — select it and press
+   **Shift + Delete** (skips the Recycle Bin). Linux — `rm` it in a terminal.
+5. **Don't copy anything else onto the stick, and don't unplug it.**
+   Plugging a drive back in lets the OS write its own housekeeping files
+   (Windows: `System Volume Information`), which can land on top of photo1.
+6. Close the app and start it again **as Administrator** (Windows: right-click
+   PowerShell → **Run as administrator**, then start the app as in Part 2)
+   or with `sudo` (Linux). Reading a whole USB stick needs these rights.
+7. **Recovery** → **Or attached device:** pick the USB stick
+   (`\\.\PhysicalDriveN` on Windows, `/dev/sdX` on Linux) → **Start Recovery
+   Scan**.
+8. Expected, as in the Mac test: photo1 comes back as a JPEG; photo2 only
+   appears as random data (type **unknown**, low confidence).
+
+Why the order matters is explained in Part 4 ("Why the order matters").
+Anything written to the stick after step 4 — by you or by the operating
+system — can overwrite photo1.
 
 ---
 

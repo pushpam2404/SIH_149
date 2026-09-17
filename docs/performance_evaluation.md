@@ -1,7 +1,9 @@
 # Performance Evaluation
 
-All numbers here were measured on 2026-09-17 with `scripts/benchmark.py`.
-Nothing is estimated or copied from elsewhere. Reproduce them with:
+All numbers here were measured with `scripts/benchmark.py`. Nothing is
+estimated or copied from elsewhere. The tables show the **second** run
+(2026-09-17, after the file-eraser and cross-platform fixes); where the
+first run differed, both are shown. Reproduce them with:
 
 ```bash
 .venv/bin/python -m scripts.benchmark
@@ -11,7 +13,10 @@ Nothing is estimated or copied from elsewhere. Reproduce them with:
 
 - Apple M4 MacBook Air, 16 GB RAM, internal SSD, macOS (Darwin 27.0)
 - Python 3.11.16
-- sleuthkit (pytsk3), PhotoRec 7.2, libmagic, Magika 1.0.3, ppdeep
+- pytsk3 20260715, PhotoRec 7.2, libmagic, Magika 1.0.3, ppdeep
+- Only macOS is benchmarked. The script also runs on Windows and Linux
+  (it then uses the pure-Python FAT16 fixture for recovery), but no
+  numbers from those platforms are recorded here.
 - bulk_extractor **not installed** — not benchmarked
 - Each measurement is the **median of 3 runs**, with the min–max range shown
 
@@ -35,23 +40,29 @@ Nothing is estimated or copied from elsewhere. Reproduce them with:
 Time includes creating the scratch copy, all overwrite passes, and sampled
 read-back verification after each pass.
 
-| Standard | Size | Median time | Min–max | Throughput | Verified |
-|---|---|---|---|---|---|
-| Single pass (zero) | 64 MB | 1.95 s | 1.92–1.99 s | 33 MB/s | 3/3 PASS |
-| Single pass (random) | 64 MB | 4.49 s | 4.46–4.50 s | 14 MB/s | 3/3 PASS |
-| NIST 800-88 Clear | 64 MB | 1.92 s | 1.92–1.93 s | 33 MB/s | 3/3 PASS |
-| DoD 5220.22-M (3-pass) | 64 MB | 8.29 s | 8.27–8.31 s | 8 MB/s | 3/3 PASS |
-| Single pass (zero) | 512 MB | 2.17 s | 2.12–2.18 s | 236 MB/s | 3/3 PASS |
-| Single pass (random) | 512 MB | 7.40 s | 7.39–7.44 s | 69 MB/s | 3/3 PASS |
-| NIST 800-88 Clear | 512 MB | 2.16 s | 2.16–2.18 s | 237 MB/s | 3/3 PASS |
-| DoD 5220.22-M (3-pass) | 512 MB | 11.44 s | 11.41–11.52 s | 45 MB/s | 3/3 PASS |
+| Standard | Size | Median time (run 2) | Min–max | Throughput | Verified | Run 1 median |
+|---|---|---|---|---|---|---|
+| Single pass (zero) | 64 MB | 0.99 s | 0.99–0.99 s | 65 MB/s | 3/3 PASS | 1.95 s |
+| Single pass (random) | 64 MB | 2.42 s | 2.39–2.47 s | 26 MB/s | 3/3 PASS | 4.49 s |
+| NIST 800-88 Clear | 64 MB | 0.99 s | 0.99–1.01 s | 64 MB/s | 3/3 PASS | 1.92 s |
+| DoD 5220.22-M (3-pass) | 64 MB | 4.36 s | 4.36–4.36 s | 15 MB/s | 3/3 PASS | 8.29 s |
+| Single pass (zero) | 512 MB | 1.22 s | 1.19–1.22 s | 421 MB/s | 3/3 PASS | 2.17 s |
+| Single pass (random) | 512 MB | 3.89 s | 3.87–3.90 s | 132 MB/s | 3/3 PASS | 7.40 s |
+| NIST 800-88 Clear | 512 MB | 1.21 s | 1.20–1.21 s | 424 MB/s | 3/3 PASS | 2.16 s |
+| DoD 5220.22-M (3-pass) | 512 MB | 6.11 s | 6.06–6.32 s | 84 MB/s | 3/3 PASS | 11.44 s |
+
+**Run 2 is roughly twice as fast as run 1, and we can't explain it.** The
+erase path itself (writer, verifier, standards) had no optimisation
+between the runs; the writer only gained a loop for partial writes. Both
+runs were on the same machine on the same day. Treat the spread between
+the two runs as the real uncertainty in these numbers.
 
 Observations:
-- **There is a fixed overhead of roughly 1.8 s per run**, regardless of
-  size. A zero-fill of 64 MB and of 512 MB take almost the same time. That
-  is why "throughput" looks 7× better at 512 MB: it isn't faster I/O, the
-  fixed cost is simply spread over more data. We have not profiled where
-  the fixed cost goes.
+- **There is a fixed overhead per run** (about 0.9 s in run 2, 1.8 s in
+  run 1), regardless of size. A zero-fill of 64 MB and of 512 MB take
+  almost the same time. That is why "throughput" looks much better at
+  512 MB: it isn't faster I/O, the fixed cost is simply spread over more
+  data. We have not profiled where the fixed cost goes.
 - **Random-fill passes are 2.5–5 s slower** than zero-fill because of
   generating random data (plus the entropy check during verification).
 - DoD 5220.22-M does one random pass and three verifications, so it is the
@@ -62,17 +73,18 @@ Observations:
 
 ## File & Folder Eraser (1 overwrite pass)
 
-| Scenario | Median time | Min–max | Per file | All PASS |
-|---|---|---|---|---|
-| 100 files × 64 KB | 23.37 s | 23.10–23.56 s | ~0.23 s | yes |
-| 10 files × 10 MB | 3.05 s | 2.96–3.06 s | ~0.31 s | yes |
+| Scenario | Median time | Min–max | Per file | All PASS | Before fix |
+|---|---|---|---|---|---|
+| 100 files × 64 KB | 0.05 s | 0.05–0.09 s | ~0.5 ms | yes | 23.37 s (~0.23 s/file) |
+| 10 files × 10 MB | 0.34 s | 0.34–0.34 s | ~34 ms | yes | 3.05 s |
 
-**Known performance issue:** small files are slow — about 0.23 s each —
-and almost none of that is writing data. Before each erase the tool runs
-filesystem-detection subprocesses (`df`, `stat`, `tmutil listlocalsnapshots`),
-and we measured that at about 0.22 s per file. Caching these results per
-directory would remove most of the cost; that is not done yet. Expect
-roughly 4 minutes for a folder of 1,000 small files.
+**Fixed performance issue:** small files used to cost about 0.23 s each,
+almost none of it writing data. Before every file the tool started
+filesystem-detection subprocesses (`df`, `stat`, `diskutil`,
+`tmutil listlocalsnapshots`). Detection now uses a system call (`statfs`
+on macOS, `GetVolumeInformationW` on Windows) and is cached per volume, as
+is the snapshot check, so a folder of 1,000 small files takes well under a
+second on this machine instead of about 4 minutes.
 
 ## Recovery Scan
 
@@ -82,10 +94,14 @@ its own, including hashing, classification and scoring.
 
 | Image | Engine | Median time | Min–max | Candidates | Deleted file recovered byte-exact |
 |---|---|---|---|---|---|
-| 32 MB | pytsk3 | 0.05 s | 0.05–0.13 s | 2 | **3/3** |
-| 32 MB | PhotoRec | 0.21 s | 0.21–0.21 s | 3 | **0/3** |
-| 128 MB | pytsk3 | 0.06 s | 0.06–0.08 s | 2 | **3/3** |
-| 128 MB | PhotoRec | 0.68 s | 0.65–0.70 s | 3 | **0/3** |
+| 32 MB | pytsk3 | 0.01 s | 0.01–0.04 s | 2 | **3/3** |
+| 32 MB | PhotoRec | 0.08 s | 0.08–0.08 s | 3 | **0/3** |
+| 128 MB | pytsk3 | 0.02 s | 0.01–0.03 s | 2 | **3/3** |
+| 128 MB | PhotoRec | 0.28 s | 0.27–0.28 s | 3 | **0/3** |
+
+Run 1 medians were 0.05 / 0.21 / 0.06 / 0.68 s. Part of the difference is
+real: classification used to run twice per recovered file and reload the
+Magika model each time; it now runs once with a cached model.
 
 Honest reading of this table:
 - **Only pytsk3 recovered the deleted file.** It works because the FAT
@@ -93,10 +109,11 @@ Honest reading of this table:
   text has no file signature to carve from, so PhotoRec only returned
   other structures (a large blob and two small gzip-signature fragments).
   **Carving without filesystem metadata is therefore not demonstrated by
-  this fixture.** A fixture with signature-bearing files (JPEG, PDF, ZIP)
-  on a reformatted volume would be needed to demonstrate it; we don't have
-  one yet.
-- PhotoRec time grows with image size (0.21 s → 0.68 s for 4× the data),
+  this fixture.** (Separately, a practice image built with
+  `scripts/make_practice_image.py` holding a deleted 10 MB JPEG was
+  recovered byte-exact by *both* pytsk3 and PhotoRec — but its FAT entry
+  still existed too, so that also isn't a metadata-free carving test.)
+- PhotoRec time grows with image size (0.08 s → 0.28 s for 4× the data),
   as expected for a full sector scan. pytsk3 time barely changes because
   it reads filesystem metadata, not every sector.
 - Nothing here measures recovery rate on real, used, fragmented, or
@@ -144,5 +161,5 @@ time and memory that we also haven't measured.
 - Physical HDD, SSD, USB, or SD card targets
 - Images larger than 512 MB (erase) or 128 MB (recovery)
 - bulk_extractor
-- Linux and Windows
+- Linux and Windows (the test suite runs there in CI; timings are not recorded)
 - GUI responsiveness under load

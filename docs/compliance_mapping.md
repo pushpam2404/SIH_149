@@ -55,8 +55,9 @@ USB flash drives, or memory cards.** Reports should be read as "logical
 erasure with verified overwrite."
 
 TRIM: after a file erase the tool attempts a best-effort `fstrim` on
-Linux. On macOS it does nothing (no safe per-volume TRIM trigger is
-available from user space), and on Windows it is not attempted.
+Linux (needs root). On macOS it does nothing (no safe per-volume TRIM
+trigger is available from user space), and on Windows it is not attempted
+(NTFS sends TRIM for freed clusters on its own schedule).
 
 ## Secure File & Folder Eraser
 
@@ -65,7 +66,10 @@ The SSD caveat applies, and more strongly: copy-on-write filesystems
 local snapshots or Time Machine may retain earlier versions. The tool
 detects the filesystem and shows specific warnings (APFS copy-on-write,
 NTFS small files resident in the MFT, ext3/ext4 journaling) in the GUI and
-the audit entry. It **warns only** — it never deletes snapshots or edits
+the audit entry. Windows adds NTFS Volume Shadow Copy / alternate data
+stream warnings, ReFS is treated as copy-on-write, and FAT/exFAT volumes
+get a warning that most of the original file name stays recoverable from
+the deleted directory entry (seen in our own recovery tests). It **warns only** — it never deletes snapshots or edits
 the MFT/journal. Every file-erasure report states that the overwrite is
 **best-effort logical erasure**.
 
@@ -121,3 +125,4 @@ embedded `limitations` list.
 | Tamper-resistant reporting | **Implemented as tamper-evident** (detects, does not prevent); MAC key hardcoded in this build |
 | Preserving evidential integrity | **Partial** — hashing and read-only access by convention; no enforced write-blocking, not certified |
 | Compliance with forensic standards | **Not claimed** |
+| Cross-platform (Windows, Linux, macOS) | **Partial** — the test suite and a real-machine self-check pass on all three in CI; physical-drive erase and USB detection on real hardware have not been tested on any of them |
