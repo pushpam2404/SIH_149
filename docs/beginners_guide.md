@@ -137,9 +137,29 @@ This creates an empty 64 MB file called `demo.img` on your Desktop.
 hdiutil attach -imagekey diskimage-class=CRawDiskImage -nomount demo.img
 ```
 
-It prints a name like **`/dev/disk4`**. **Write this down** — the number
-may be different on your Mac. We'll call it `/dev/diskN` below; always
-replace it with your real one.
+It prints a name like **`/dev/disk4`**. **Write this down.**
+
+In the next steps you'll see **`/dev/diskN`**. **`N` is not something to
+type** — replace it with the number you just got. For example, if Step 2
+printed `/dev/disk4`, then `/dev/diskN` means `/dev/disk4`:
+
+| Guide says | You type (if you got disk4) |
+|---|---|
+| `diskutil list /dev/diskN` | `diskutil list /dev/disk4` |
+| `diskutil eraseVolume MS-DOS DEMOVOL /dev/diskN` | `diskutil eraseVolume MS-DOS DEMOVOL /dev/disk4` |
+
+> **Why is it usually 4?** Your Mac numbers every disk it knows about,
+> starting from 0. On a typical Apple Silicon Mac, **disk0 to disk3 are
+> already taken by the Mac's own internal drive** (you can see them in
+> the app's **Drive Eraser** tab, marked `BLOCKED`, or by running
+> `diskutil list`). So the pretend stick gets the next free number,
+> which is usually **4**.
+>
+> It can be **higher** (5, 6, …) if you have a USB drive plugged in, or
+> another disk image still connected from an earlier try. That's why you
+> should always use **the number Step 2 actually printed**, not assume 4.
+>
+> ⚠️ **Never use 0, 1, 2 or 3.** Those are your Mac's own drive.
 
 You may also see:
 ```
@@ -321,6 +341,8 @@ Then go back to Step 1. (Make sure it's ejected first — Step 8.)
 | `cp: ... Not a directory` | The file path has spaces. Put it in quotes, or drag the file into Terminal. |
 | `No such file or directory` | Typo in the path or wrong extension (e.g. `.jpg` vs `.png`). Run `ls /Volumes/DEMOVOL` to see real names. |
 | `/Volumes/DEMOVOL` doesn't exist | You skipped Step 4 (format), or the image was already ejected. |
+| `Could not find disk for /dev/diskN` | You typed the letter `N`. Replace it with your number from Step 2, e.g. `/dev/disk4`. |
+| Forgot the number from Step 2 | Run `diskutil list` and find the line that says `(disk image)` with a size of about 67.1 MB — e.g. `/dev/disk4 (disk image):`. That's your number. |
 | `diskutil image attach ... doesn't exist` | Don't use `diskutil image attach`. Use the `hdiutil attach` command from Step 2 exactly. |
 | Files greyed out in the File & Folder Eraser | See the note at the end of Step 6 (Removable Volumes permission). |
 | Files greyed out in Drive Eraser / Recovery | Change the dropdown to "All files (*)" — see Part 3. |
