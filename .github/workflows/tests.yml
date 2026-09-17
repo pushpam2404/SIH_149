@@ -1,0 +1,62 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ---- Windows: exercise the same setup script users run ----
+      - name: Setup (Windows, scripts/setup_env.ps1)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File scripts\setup_env.ps1
+
+      # ---- Linux / macOS: system packages, then pip ----
+      - name: System packages (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y testdisk libmagic1 libegl1 libgl1 libxkbcommon0 \
+            libxkbcommon-x11-0 libdbus-1-3 libfontconfig1
+      - name: System packages (macOS)
+        if: runner.os == 'macOS'
+        run: brew install testdisk libmagic
+      - name: Python packages (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements.txt
+
+      - name: Tests (Windows)
+        if: runner.os == 'Windows'
+        run: .venv\Scripts\python.exe -m pytest -v
+      - name: Tests (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: .venv/bin/python -m pytest -v
+
+      - name: Platform self-check on the real runner (Windows)
+        if: runner.os == 'Windows'
+        run: .venv\Scripts\python.exe -m scripts.check_platform --gui
+      - name: Platform self-check on the real runner (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: .venv/bin/python -m scripts.check_platform --gui

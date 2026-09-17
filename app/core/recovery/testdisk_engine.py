@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from app.core.recovery.engine_base import RecoveredFileCandidate, RecoveryEngine
 from app.utils.logging_setup import get_logger
-from app.utils.subprocess_utils import run, which
+from app.utils.subprocess_utils import run, which_any
 
 logger = get_logger(__name__)
 
@@ -37,7 +37,7 @@ class TestDiskEngine(RecoveryEngine):
     name = "testdisk"
 
     def is_available(self) -> bool:
-        return which("testdisk") is not None
+        return which_any("testdisk", "testdisk_win") is not None
 
     def scan(self, source_path: str, output_dir: str) -> list[RecoveredFileCandidate]:
         # File extraction is handled by PhotoRecEngine/TskEngine; TestDisk is
@@ -49,7 +49,7 @@ class TestDiskEngine(RecoveryEngine):
             logger.warning("testdisk not installed — skipping partition analysis")
             return []
 
-        result = run(["testdisk", "/list", source_path], timeout=_LIST_TIMEOUT_SECONDS, stdin_devnull=True)
+        result = run([which_any("testdisk", "testdisk_win"), "/list", source_path], timeout=_LIST_TIMEOUT_SECONDS, stdin_devnull=True)
         partitions: list[PartitionInfo] = []
         for line in result.stdout.splitlines():
             match = _PARTITION_LINE_RE.match(line)

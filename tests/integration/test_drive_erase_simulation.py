@@ -4,6 +4,8 @@ Uses a plain disk-image DeviceInfo (is_disk_image=True), which never
 touches the real device backend, so this test runs anywhere without
 needing hdiutil/diskutil device attachment.
 """
+from pathlib import Path
+
 from app.core.audit.ledger import AuditLedger
 from app.core.devices.enumerator import disk_image_info
 from app.core.devices.backend_macos import MacOSDeviceBackend
@@ -71,3 +73,28 @@ def test_drive_erase_refuses_without_confirmation(tmp_path):
             simulation_mode=True, user_confirmed=False,
         )
     ledger.close()
+
+
+def test_default_scratch_copy_goes_to_data_dir_not_working_directory(tmp_path, monkeypatch):
+    from app.core.erasure import drive_eraser
+
+    original = tmp_path / "source.img"
+    original.write_bytes(b"\xAA" * (1024 * 1024))
+    data_dir = tmp_path / "appdata"
+    elsewhere = tmp_path / "some_other_cwd"
+    elsewhere.mkdir()
+    monkeypatch.setattr(drive_eraser, "DATA_DIR", data_dir)
+    monkeypatch.chdir(elsewhere)
+
+    ledger = AuditLedger(tmp_path / "audit.sqlite3")
+    try:
+        result = run_drive_erase(
+            disk_image_info(str(original)), MacOSDeviceBackend(), standard_id="single_pass_zero",
+            ledger=ledger, simulation_mode=True, user_confirmed=True,
+        )
+    finally:
+        ledger.close()
+
+    assert result.ok
+    assert Path(result.effective_target_path).parent == data_dir / "simulation"
+    assert not (elsewhere / "data").exists()

@@ -9,18 +9,20 @@ from pathlib import Path
 
 from app.core.recovery.engine_base import RecoveredFileCandidate, RecoveryEngine
 from app.utils.logging_setup import get_logger
-from app.utils.subprocess_utils import run, which
+from app.utils.subprocess_utils import run, which_any
 
 logger = get_logger(__name__)
 
 _SCAN_TIMEOUT_SECONDS = 900.0
+# Windows builds of bulk_extractor are distributed as bulk_extractor64.exe.
+_BINARY_NAMES = ("bulk_extractor", "bulk_extractor64")
 
 
 class BulkExtractorEngine(RecoveryEngine):
     name = "bulk_extractor"
 
     def is_available(self) -> bool:
-        return which("bulk_extractor") is not None
+        return which_any(*_BINARY_NAMES) is not None
 
     def scan(self, source_path: str, output_dir: str) -> list[RecoveredFileCandidate]:
         if not self.is_available():
@@ -29,11 +31,10 @@ class BulkExtractorEngine(RecoveryEngine):
 
         out_dir = Path(output_dir) / "bulk_extractor_out"
         out_dir.mkdir(parents=True, exist_ok=True)
-        abs_source = str(Path(source_path).resolve())
+        abs_source = source_path if source_path.startswith(("\\\\.\\", "/dev/")) else str(Path(source_path).resolve())
 
-        # run bulk_extractor
         result = run(
-            ["bulk_extractor", "-o", str(out_dir), abs_source],
+            [which_any(*_BINARY_NAMES), "-o", str(out_dir), abs_source],
             timeout=_SCAN_TIMEOUT_SECONDS,
             cwd=str(out_dir.parent),
         )

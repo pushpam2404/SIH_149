@@ -102,23 +102,24 @@ def run_recovery_scan(
         progress_cb("hashing and classifying recovered candidates...")
 
     hashes_by_value: dict[str, list[RecoveredFileCandidate]] = defaultdict(list)
+    classifications = []
     for candidate in all_candidates:
         sha256_val, fuzzy_val = _hash_file(candidate.recovered_path)
         candidate.sha256 = sha256_val
         candidate.fuzzy_hash = fuzzy_val
         
         classification = classify(candidate.recovered_path, candidate.suggested_name)
+        classifications.append(classification)
         candidate.file_type = classification.file_type
         candidate.confidence_reasons = list(classification.reasons)
         if candidate.sha256:
             hashes_by_value[candidate.sha256].append(candidate)
 
-    for candidate in all_candidates:
+    for candidate, classification in zip(all_candidates, classifications):
         cross_engine = False
         if candidate.sha256:
             siblings = hashes_by_value[candidate.sha256]
             cross_engine = len({c.source_engine for c in siblings}) > 1
-        classification = classify(candidate.recovered_path, candidate.suggested_name)
         score, score_reasons = score_candidate(classification, candidate, cross_engine_agreement=cross_engine)
         candidate.confidence_score = score
         candidate.confidence_reasons.extend(score_reasons)

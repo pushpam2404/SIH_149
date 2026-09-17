@@ -8,7 +8,6 @@ data back.
 """
 from __future__ import annotations
 
-import os
 import shutil
 import time
 from dataclasses import dataclass, field
@@ -16,6 +15,7 @@ from pathlib import Path
 from typing import Callable
 
 from app.config.constants import ACTION_DRIVE_ERASE
+from app.config.settings import DATA_DIR
 from app.core.audit.ledger import AuditLedger
 from app.core.devices.backend_base import DeviceBackend, DeviceInfo
 from app.core.devices.fingerprint import fingerprint
@@ -78,7 +78,9 @@ def run_drive_erase(
 
     effective_path = info.path
     if info.is_disk_image and simulation_mode:
-        scratch_dir = simulation_scratch_dir or (Path(os.getcwd()) / "data" / "simulation")
+        # DATA_DIR, not the current working directory: launching the app from
+        # another folder (or a desktop shortcut) must not scatter scratch copies.
+        scratch_dir = simulation_scratch_dir or (DATA_DIR / "simulation")
         scratch_dir.mkdir(parents=True, exist_ok=True)
         effective_path = str(scratch_dir / f"{dev_fingerprint}-{int(time.time())}.img")
         shutil.copyfile(info.path, effective_path)
@@ -107,6 +109,11 @@ def run_drive_erase(
                 if not verification.ok:
                     error = f"verification failed for pass {wipe_pass.label!r}"
                     break
+    except PermissionError as exc:
+        error = (
+            f"permission denied during erasure: {exc}. Raw device writes need elevated rights "
+            "(Administrator on Windows, root/sudo on Linux and macOS)."
+        )
     except OSError as exc:
         error = f"I/O error during erasure: {exc}"
 

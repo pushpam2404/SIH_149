@@ -1,37 +1,71 @@
+# ---------------------------------------------------------------------------
+# Everything below is generated locally by setting up, running, testing or
+# building the app. Anyone cloning the repo recreates it on their own machine,
+# so none of it belongs in git.
+# ---------------------------------------------------------------------------
+
+# Python virtual environments and caches
 .venv/
+venv/
+env/
 __pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
+*.py[cod]
 *.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build output (PyInstaller: `pyinstaller sih149.spec`)
 build/
 dist/
+*.spec.bak
 
-# runtime data — audit DB, generated reports, demo disk images
+# App runtime data: audit ledger DB, generated PDF/JSON reports, simulation
+# scratch copies, recovery output, and archived copies of any of these
 data/
 reports/
-tests/fixtures/sample_images/
+archive/
+recovered/
+recup_dir.*/
+bulk_extractor_out/
+certificate_*.json
+
+# Disk images and forensic evidence files (demo practice images, test images)
 *.img
 *.dmg
+*.dd
+*.raw
+*.E01
+*.vhd
+*.vhdx
+tests/fixtures/sample_images/
 
-.DS_Store
-.env
-
-# stray files photorec's /log flag writes relative to CWD when a caller
-# doesn't set cwd= (fixed in photorec_engine.py, kept here defensively)
+# Stray tool output: PhotoRec's /log files, openssl ts request/response probes
 photorec.log
 photorec.se2
-
-# stray files from manually probing timestamping.py's openssl ts path
 *.tsq
 *.tsr
 
-# PyInstaller build output
-*.spec.bak
+# OS and editor clutter
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+.env
 
+# Local assistant/tooling files
 CLAUDE.md
+.claude/
+.codegraph/
+brag-output/
 
-# internal planning/handoff docs — not judge-facing deliverables
+# Internal planning/research notes — not part of the published project
 docs/BACKLOG_*.md
 docs/ROADMAP_OVERVIEW.md
 docs/ps.txt
@@ -39,7 +73,3 @@ docs/Digital Forensics Toolchain Feasibility.md
 docs/Forensic File Carving Techniques Survey.md
 docs/Secure Data Erasure Standards Analysis.md
 docs/Secure File Deletion Analysis.md
-
-# local tooling output — promo video build (brag) and CodeGraph index
-brag-output/
-.codegraph/

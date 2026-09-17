@@ -32,7 +32,16 @@ def write_pass(
     written = 0
     while written < total_size:
         this_chunk = min(chunk_size, total_size - written)
-        file_obj.write(_fill_chunk(fill, this_chunk))
+        data = memoryview(_fill_chunk(fill, this_chunk))
+        # Unbuffered raw handles (used for physical drives on Windows) may
+        # accept fewer bytes than offered; keep writing until the chunk is done.
+        while data:
+            count = file_obj.write(data)
+            if count is None:  # non-blocking stream would-block; not expected for files/devices
+                count = 0
+            if count <= 0 and len(data):
+                raise OSError("device accepted no bytes during overwrite")
+            data = data[count:]
         written += this_chunk
         if progress_cb is not None:
             progress_cb(written, total_size)

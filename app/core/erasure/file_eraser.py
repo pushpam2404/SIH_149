@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import stat
 import string
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -68,6 +69,18 @@ def _clear_extended_attributes(path: Path) -> bool:
         return False
 
 
+def _make_writable(path: Path) -> None:
+    """Clears the read-only flag if set. On Windows a read-only file can't be
+    opened for writing or deleted even by its owner; on POSIX this only adds
+    the owner-write bit and is harmless."""
+    try:
+        mode = path.stat().st_mode
+        if not mode & stat.S_IWRITE:
+            os.chmod(path, mode | stat.S_IWRITE)
+    except OSError:
+        pass
+
+
 def erase_file(path: str, ledger: AuditLedger, passes: int = 1, actor: str = "user") -> FileEraseResult:
     target = Path(path)
     if not target.is_file():
@@ -80,6 +93,7 @@ def erase_file(path: str, ledger: AuditLedger, passes: int = 1, actor: str = "us
 
     try:
         size = target.stat().st_size
+        _make_writable(target)
         with open(target, "r+b") as f:
             for _ in range(passes):
                 f.seek(0)

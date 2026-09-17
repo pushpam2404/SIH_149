@@ -27,6 +27,27 @@ try:
 except ImportError:
     _MAGIKA_AVAILABLE = False
 
+_magika_instance = None
+
+
+def _magika():
+    """Loading the Magika model takes ~100 ms; do it once, not per file."""
+    global _magika_instance
+    if _magika_instance is None:
+        _magika_instance = Magika()
+    return _magika_instance
+
+
+def _magika_label_and_score(result) -> tuple[str, float]:
+    """Magika >= 0.6 exposes `result.output.label` and `result.score`; older
+    releases used `result.output.ct_label` and `result.output.score`."""
+    output = result.output
+    label = getattr(output, "label", None) or getattr(output, "ct_label", None)
+    score = getattr(result, "score", None)
+    if score is None:
+        score = getattr(output, "score", 0.0)
+    return str(label), float(score)
+
 
 @dataclass
 class ClassificationResult:
@@ -77,10 +98,8 @@ def classify(file_path: str, suggested_name: str = "") -> ClassificationResult:
 
     if _MAGIKA_AVAILABLE:
         try:
-            m = Magika()
-            res = m.identify_bytes(data)
-            magika_label = res.output.ct_label
-            magika_score = res.output.score
+            res = _magika().identify_bytes(data)
+            magika_label, magika_score = _magika_label_and_score(res)
             
             reasons.append(f"magika cross-check: {magika_label} (score: {magika_score:.2f})")
             

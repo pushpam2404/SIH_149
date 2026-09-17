@@ -1,3 +1,7 @@
+# Python 3.10–3.13. On Linux, current PySide6 wheels need glibc 2.34+ (e.g. Ubuntu 22.04+).
+# CI runs the test suite with Python 3.12 on Windows, Ubuntu and macOS
+# (see .github/workflows/tests.yml).
+
 # GUI
 PySide6>=6.7,<7
 
@@ -10,17 +14,17 @@ reportlab>=4.0
 # verification math (entropy/chi-square)
 numpy>=1.26
 
-# recovery: filesystem-aware carving (Sleuth Kit bindings)
-# Requires `sleuthkit` installed via the system package manager BEFORE this,
-# e.g. `brew install sleuthkit` (macOS) or `apt-get install sleuthkit` (Linux).
-# See scripts/setup_env.sh. Optional — the app degrades gracefully if missing.
-pytsk3>=20230125; python_version < "3.13"
+# recovery: filesystem-aware carving (Sleuth Kit bindings).
+# Prebuilt wheels bundle libtsk for Windows, Linux (x86_64/aarch64) and macOS,
+# so no system Sleuth Kit install is needed. Optional — the app degrades
+# gracefully if it is missing.
+pytsk3>=20231007
 
-# recovery: secondary file-type cross-check signal
-# Requires `libmagic` installed via the system package manager first
-# (`brew install libmagic` / `apt-get install libmagic1 libmagic-dev`).
-# Optional — the app degrades gracefully if missing.
-python-magic>=0.4.27
+# recovery: secondary file-type cross-check signal via libmagic.
+# macOS/Linux only: needs the system libmagic (`brew install libmagic` /
+# `apt-get install libmagic1`). Skipped on Windows, where the app falls back
+# to its signature table + Magika.
+python-magic>=0.4.27; sys_platform != "win32"
 
 # recovery: deep-learning file-type classification (Google Magika)
 magika>=0.5.0
@@ -31,4 +35,3 @@ ppdeep>=20260221
 # testing
 pytest>=8.0
 pytest-qt>=4.4
-

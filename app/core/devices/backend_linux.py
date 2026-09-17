@@ -1,9 +1,19 @@
-"""Linux device backend: lsblk -J for enumeration, losetup for loopback images.
+"""Linux device backend: `lsblk -J` for enumeration, losetup for loopback images.
 
-NOTE: this backend is written to the same interface as backend_macos.py but
-has not been exercised on the macOS dev machine this project was built on
-(see docs/technical_documentation.md, "Known Limitations"). Validate on a
-real Linux box before relying on it.
+System-disk detection walks lsblk's device tree: a whole disk is the
+system container if ANY descendant (partition, LVM volume, LUKS mapping,
+...) is mounted at a system mount point or used as swap. This catches
+root-on-LVM/LUKS layouts that a "strip the partition number off
+findmnt's source" approach misses.
+
+lsblk's JSON types differ between util-linux versions (older releases
+print "rm": "0" as strings, newer ones print booleans), so every flag is
+parsed explicitly — `bool("0")` is True in Python and would silently mark
+internal disks as removable.
+
+STATUS: parsing and safety classification are covered by unit tests with
+recorded lsblk output, and enumeration runs in CI on an Ubuntu runner. A
+real erase of a physical drive on Linux has NOT been performed.
 """
 from __future__ import annotations
 
@@ -16,11 +26,13 @@ from app.utils.subprocess_utils import require, run
 
 logger = get_logger(__name__)
 
+_SYSTEM_MOUNTPOINTS = {"/", "/boot", "/boot/efi", "/efi", "/usr", "/var", "/home", "[SWAP]"}
+
 
 def _lsblk_json() -> dict:
     lsblk = require("lsblk")
     result = run(
-        [lsblk, "-J", "-b", "-o", "NAME,SIZE,RM,RO,TYPE,MOUNTPOINT,MODEL,SERIAL,FSTYPE,ROTA"],
+        [lsblk, "-J", "-b", "-o", "NAME,SIZE,RM,RO,TYPE,MOUNTPOINT,MODEL,SERIAL,FSTYPE,ROTA,TRAN"],
         timeout=30.0,
     )
     if not result.ok:
@@ -28,59 +40,81 @@ def _lsblk_json() -> dict:
     return json.loads(result.stdout)
 
 
-def _boot_device_name() -> str | None:
-    """Best-effort: the block device backing the root filesystem."""
-    result = run(["findmnt", "-n", "-o", "SOURCE", "/"], timeout=10.0)
-    if not result.ok:
-        return None
-    source = result.stdout.strip()
-    # Strip partition suffix (e.g. /dev/sda1 -> sda, /dev/nvme0n1p1 -> nvme0n1)
-    name = source.rsplit("/", 1)[-1]
-    while name and name[-1].isdigit():
-        name = name[:-1]
-    name = name.rstrip("p") if name.endswith("p") else name
-    return name or None
+def as_flag(value) -> bool:
+    """lsblk flag parsing that works for both `true`/`false` and `"1"`/`"0"`."""
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes")
+    return bool(value)
+
+
+def _mountpoints(entry: dict) -> set[str]:
+    points = set()
+    single = entry.get("mountpoint")
+    if single:
+        points.add(single)
+    for point in entry.get("mountpoints") or []:
+        if point:
+            points.add(point)
+    return points
+
+
+def hosts_system_mount(entry: dict) -> bool:
+    if _mountpoints(entry) & _SYSTEM_MOUNTPOINTS:
+        return True
+    return any(hosts_system_mount(child) for child in entry.get("children") or [])
+
+
+def _filesystems(entry: dict) -> list[str]:
+    found = [entry["fstype"]] if entry.get("fstype") else []
+    for child in entry.get("children") or []:
+        found.extend(_filesystems(child))
+    return found
+
+
+def entry_to_device_info(entry: dict) -> DeviceInfo:
+    name = entry.get("name", "")
+    transport = str(entry.get("tran") or "").lower()
+    # HOTPLUG is deliberately ignored: hot-swap SATA/SAS bays report it for
+    # internal data disks, which must stay blocked.
+    removable = as_flag(entry.get("rm")) or transport in ("usb", "mmc")
+    rotational = as_flag(entry.get("rota"))
+    filesystems = list(dict.fromkeys(_filesystems(entry)))
+    return DeviceInfo(
+        path=f"/dev/{name}",
+        display_name=(entry.get("model") or "").strip() or name,
+        size_bytes=int(entry.get("size") or 0),
+        is_disk_image=False,
+        is_removable=removable,
+        is_internal=not removable,
+        is_system_container=hosts_system_mount(entry),
+        filesystem=", ".join(filesystems) or None,
+        model=(entry.get("model") or "").strip() or None,
+        serial=(entry.get("serial") or "").strip() or None,
+        topology_type="magnetic" if rotational else ("nvme" if transport == "nvme" else "ssd"),
+        has_hpa_dco=False,  # would need hdparm -N
+        is_sed=False,  # would need hdparm -I / sedutil
+        ieee_2883_capabilities=["Clear"],
+    )
+
+
+def parse_lsblk(data: dict) -> list[DeviceInfo]:
+    return [
+        entry_to_device_info(entry)
+        for entry in data.get("blockdevices", [])
+        if entry.get("type") == "disk"
+    ]
 
 
 class LinuxDeviceBackend(DeviceBackend):
     def list_devices(self) -> list[DeviceInfo]:
-        data = _lsblk_json()
-        boot_name = _boot_device_name()
-        devices = []
-        for entry in data.get("blockdevices", []):
-            if entry.get("type") != "disk":
-                continue
-            devices.append(self._to_device_info(entry, boot_name))
-        return devices
+        return parse_lsblk(_lsblk_json())
 
     def get_device_info(self, path: str) -> DeviceInfo:
-        name = path.rsplit("/", 1)[-1]
-        data = _lsblk_json()
-        boot_name = _boot_device_name()
-        for entry in data.get("blockdevices", []):
-            if entry.get("name") == name:
-                return self._to_device_info(entry, boot_name)
+        target = f"/dev/{path.rsplit('/', 1)[-1]}"
+        for info in self.list_devices():
+            if info.path == target:
+                return info
         raise RuntimeError(f"device {path} not found via lsblk")
-
-    def _to_device_info(self, entry: dict, boot_name: str | None) -> DeviceInfo:
-        name = entry.get("name", "")
-        removable = bool(entry.get("rm"))
-        return DeviceInfo(
-            path=f"/dev/{name}",
-            display_name=entry.get("model") or name,
-            size_bytes=int(entry.get("size") or 0),
-            is_disk_image=False,
-            is_removable=removable,
-            is_internal=not removable,
-            is_system_container=(boot_name is not None and name == boot_name),
-            filesystem=entry.get("fstype") or None,
-            model=entry.get("model") or None,
-            serial=entry.get("serial") or None,
-            topology_type="magnetic" if entry.get("rota") == "1" else "ssd",
-            has_hpa_dco=False,  # Can use hdparm -N /dev/xxx for HPA in a real implementation
-            is_sed=False,       # Can use hdparm -I /dev/xxx for SED detection
-            ieee_2883_capabilities=["Clear", "Purge"] if str(entry.get("rota")) == "0" else ["Clear"],
-        )
 
     def is_system_drive(self, info: DeviceInfo) -> bool:
         return info.is_internal or info.is_system_container

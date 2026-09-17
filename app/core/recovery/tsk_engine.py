@@ -11,6 +11,7 @@ reformatted/destroyed entirely; that case is PhotoRecEngine's job
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 from app.core.recovery.engine_base import RecoveredFileCandidate, RecoveryEngine
@@ -27,6 +28,15 @@ except ImportError:  # pragma: no cover - exercised only when pytsk3 isn't insta
     _PYTSK3_AVAILABLE = False
 
 _READ_CHUNK = 1024 * 1024
+# Characters that are invalid in file names on Windows (and "/" everywhere).
+_UNSAFE_NAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def safe_output_name(inode: int, name: str) -> str:
+    """Output file name for a recovered entry that is valid on every OS.
+    Deleted FAT entries start with 0xE5 and NTFS names can contain ':' etc."""
+    cleaned = _UNSAFE_NAME_CHARS.sub("_", name).strip(" .") or "unnamed"
+    return f"inode{inode}_{cleaned}"[:200]
 
 
 def _open_filesystem(img):
@@ -118,8 +128,7 @@ class TskEngine(RecoveryEngine):
         if size <= 0:
             return None
 
-        safe_name = f"inode{meta.addr}_{name}".replace("/", "_")
-        output_path = out_dir / safe_name
+        output_path = out_dir / safe_output_name(meta.addr, name)
 
         try:
             f = fs.open_meta(inode=meta.addr)

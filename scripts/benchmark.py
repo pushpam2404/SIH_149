@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import platform
+import shutil
 import statistics
 import tempfile
 import time
@@ -19,13 +20,13 @@ from app.config.constants import (
     STANDARD_SINGLE_PASS_ZERO,
 )
 from app.core.audit.ledger import AuditLedger
-from app.core.devices.backend_macos import MacOSDeviceBackend
-from app.core.devices.enumerator import disk_image_info
+from app.core.devices.enumerator import disk_image_info, get_backend
 from app.core.erasure.drive_eraser import run_drive_erase
 from app.core.erasure.file_eraser import erase_batch
 from app.core.recovery.photorec_engine import PhotoRecEngine
 from app.core.recovery.scan_service import run_recovery_scan
 from app.core.recovery.tsk_engine import TskEngine
+from tests.fixtures.fat_image import make_fat16_image_with_deleted_file
 from tests.fixtures.make_test_image import make_fat_image_with_deleted_file
 
 RUNS = 3
@@ -50,7 +51,7 @@ def bench_drive_erase(work: Path) -> None:
     print(f"median of {RUNS} runs; includes scratch-copy creation + passes + sampled verification\n")
     print("| Standard | Size | Median time | Min–max | Median throughput | Verified |")
     print("|---|---|---|---|---|---|")
-    backend = MacOSDeviceBackend()
+    backend = get_backend()  # unused for disk images, but required by the signature
     for size_mb in ERASE_SIZES_MB:
         src = work / f"src_{size_mb}.img"
         with open(src, "wb") as f:
@@ -102,11 +103,19 @@ def bench_file_erase(work: Path) -> None:
 
 
 def bench_recovery(work: Path) -> None:
-    print("\n## Recovery (FAT image with one deleted text file)\n")
+    # macOS: images formatted by the real FAT driver (hdiutil/diskutil), as in the
+    # published numbers. Elsewhere: the pure-Python 16 MiB FAT16 fixture.
+    native = shutil.which("hdiutil") is not None and shutil.which("diskutil") is not None
+    fixture_kind = "hdiutil/diskutil FAT" if native else "pure-Python FAT16"
+    print(f"\n## Recovery ({fixture_kind} image with one deleted text file)\n")
     print("| Image | Engine | Median time | Min–max | Candidates | Deleted file recovered byte-exact |")
     print("|---|---|---|---|---|---|")
-    for size_mb in RECOVERY_SIZES_MB:
-        fixture = make_fat_image_with_deleted_file(str(work / f"rec_{size_mb}.img"), size_mb=size_mb)
+    for size_mb in (RECOVERY_SIZES_MB if native else [16]):
+        image_path = str(work / f"rec_{size_mb}.img")
+        if native:
+            fixture = make_fat_image_with_deleted_file(image_path, size_mb=size_mb)
+        else:
+            fixture = make_fat16_image_with_deleted_file(image_path)
         for engine_cls in (TskEngine, PhotoRecEngine):
             engine = engine_cls()
             if not engine.is_available():

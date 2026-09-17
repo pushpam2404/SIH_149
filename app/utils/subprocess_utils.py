@@ -1,13 +1,27 @@
-"""Safe subprocess helpers for shelling out to diskutil/hdiutil/lsblk/photorec/testdisk.
+"""Safe subprocess helpers for shelling out to diskutil/hdiutil/lsblk/PowerShell/photorec/testdisk.
 
 Centralized here so every external-tool wrapper gets the same timeout and
-argument-list (never shell=True) discipline.
+argument-list (never shell=True) discipline, and the same cross-platform
+behaviour:
+
+- Output is decoded as UTF-8 with `errors="replace"`, so a tool printing
+  bytes in another code page (common on Windows consoles) can't crash the
+  caller with UnicodeDecodeError.
+- On Windows, child processes are started with CREATE_NO_WINDOW so the GUI
+  (a windowed app with no console) doesn't flash a console window for
+  every PowerShell/PhotoRec call.
+- A missing binary returns a failed CommandResult instead of raising, so
+  callers only need to check `.ok`.
 """
 from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
+
+IS_WINDOWS = sys.platform == "win32"
+_NO_WINDOW_FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0) if IS_WINDOWS else 0
 
 
 class ToolNotFoundError(RuntimeError):
@@ -29,12 +43,22 @@ def which(binary: str) -> str | None:
     return shutil.which(binary)
 
 
+def which_any(*binaries: str) -> str | None:
+    """First binary found on PATH, e.g. which_any("photorec", "photorec_win")
+    — several tools ship under a different executable name on Windows."""
+    for name in binaries:
+        path = shutil.which(name)
+        if path is not None:
+            return path
+    return None
+
+
 def require(binary: str) -> str:
     path = shutil.which(binary)
     if path is None:
         raise ToolNotFoundError(
             f"Required tool '{binary}' not found on PATH. "
-            f"See scripts/setup_env.sh for install instructions."
+            f"See the Setup section of README.md for install instructions."
         )
     return path
 
@@ -55,16 +79,29 @@ def run(
     cwd matters for tools (e.g. photorec's `/log` flag) that write
     incidental files relative to the current working directory rather
     than to any path you pass on the command line.
+
+    subprocess.TimeoutExpired is still raised on timeout so long-running
+    callers can tell "hung" apart from "failed".
     """
-    proc = subprocess.run(
-        args,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        stdin=subprocess.DEVNULL if stdin_devnull else None,
-        cwd=cwd,
-    )
-    result = CommandResult(proc.returncode, proc.stdout, proc.stderr)
+    try:
+        proc = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            stdin=subprocess.DEVNULL if stdin_devnull else None,
+            cwd=cwd,
+            creationflags=_NO_WINDOW_FLAGS,
+        )
+    except FileNotFoundError as exc:
+        result = CommandResult(127, "", f"executable not found: {exc}")
+        if check:
+            raise ToolNotFoundError(result.stderr) from exc
+        return result
+
+    result = CommandResult(proc.returncode, proc.stdout or "", proc.stderr or "")
     if check and not result.ok:
         raise subprocess.CalledProcessError(
             proc.returncode, args, output=proc.stdout, stderr=proc.stderr

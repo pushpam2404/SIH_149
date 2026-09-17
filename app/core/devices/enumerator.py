@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import platform
+import sys
 
 from app.core.devices.backend_base import DeviceBackend, DeviceInfo
 
@@ -23,6 +24,33 @@ def get_backend() -> DeviceBackend:
 
         return WindowsDeviceBackend()
     raise RuntimeError(f"unsupported platform: {system}")
+
+
+def is_raw_device_path(path: str) -> bool:
+    return path.startswith("\\\\.\\") or path.startswith("/dev/")
+
+
+def raw_access_problem(path: str, write: bool = False) -> str | None:
+    """Plain-language reason the current process can't read a raw device, or
+    None if it looks fine (or `path` is a regular file). Checked up front so a
+    permission problem isn't reported as "0 files recovered"."""
+    if not is_raw_device_path(path):
+        return None
+    if sys.platform == "win32":
+        from app.core.devices.backend_windows import is_admin
+
+        if not is_admin():
+            action = "Erasing" if write else "Reading"
+            return f"{action} a physical drive on Windows requires starting the app as Administrator."
+        return None
+    if not os.path.exists(path):
+        return f"{path} does not exist."
+    if not os.access(path, os.W_OK if write else os.R_OK):
+        return (
+            f"This user can't {'write to' if write else 'read'} {path}. Run the app with elevated rights "
+            "(e.g. sudo on Linux; on macOS, sudo plus Full Disk Access for the terminal)."
+        )
+    return None
 
 
 def list_devices() -> list[DeviceInfo]:

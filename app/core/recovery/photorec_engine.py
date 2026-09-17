@@ -14,35 +14,51 @@ stdin, PhotoRec's TUI can block waiting for a keypress.
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+import os
 from pathlib import Path
 
 from app.core.recovery.engine_base import RecoveredFileCandidate, RecoveryEngine
 from app.core.recovery.reassembly import ByteRun, reassemble
 from app.utils.logging_setup import get_logger
-from app.utils.subprocess_utils import run, which
+from app.utils.subprocess_utils import run, which_any
 
 logger = get_logger(__name__)
 
 _SCAN_TIMEOUT_SECONDS = 600.0
+# The official Windows TestDisk/PhotoRec zip ships photorec_win.exe.
+_BINARY_NAMES = ("photorec", "photorec_win")
+
+
+def photorec_binary() -> str | None:
+    return which_any(*_BINARY_NAMES)
+
+
+def _is_device_path(path: str) -> bool:
+    return path.startswith("\\\\.\\") or path.startswith("/dev/")
 
 
 class PhotoRecEngine(RecoveryEngine):
     name = "photorec"
 
     def is_available(self) -> bool:
-        return which("photorec") is not None
+        return photorec_binary() is not None
 
     def scan(self, source_path: str, output_dir: str) -> list[RecoveredFileCandidate]:
         if not self.is_available():
             logger.warning("photorec not installed — skipping this engine")
             return []
 
-        out_dir = Path(output_dir)
+        binary = photorec_binary()
+        out_dir = Path(output_dir).resolve()
         out_dir.mkdir(parents=True, exist_ok=True)
-        abs_source = str(Path(source_path).resolve())
+        # Raw device paths (\\.\PhysicalDriveN, /dev/sdX) must be passed as-is;
+        # Path.resolve() would mangle the Windows form.
+        abs_source = source_path if _is_device_path(source_path) else str(Path(source_path).resolve())
 
         result = run(
-            ["photorec", "/log", "/d", f"{out_dir}/", "/cmd", abs_source, "search"],
+            # /d takes a directory PREFIX: PhotoRec appends recup_dir.N itself, so the
+            # trailing separator is what puts recup_dir.N inside out_dir.
+            [binary, "/log", "/d", f"{out_dir}{os.sep}", "/cmd", abs_source, "search"],
             timeout=_SCAN_TIMEOUT_SECONDS,
             stdin_devnull=True,
             cwd=str(out_dir),  # /log writes photorec.log relative to CWD, not to /d's path

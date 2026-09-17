@@ -8,8 +8,9 @@ block_cipher = None
 # We need to collect submodules for magika and other dynamic imports
 hiddenimports = []
 hiddenimports += collect_submodules('magika')
-hiddenimports += collect_submodules('magic')
+hiddenimports += collect_submodules('magic')  # absent on Windows (python-magic not installed there); collect_submodules then returns []
 hiddenimports += collect_submodules('ppdeep')
+hiddenimports += ['PySide6.QtSvg']  # icons are rendered with QSvgRenderer
 
 a = Analysis(
     ['app/main.py'],
