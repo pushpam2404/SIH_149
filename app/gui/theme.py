@@ -106,7 +106,7 @@ def build_stylesheet() -> str:
     color: {c['text']};
     outline: none;
 }}
-QMainWindow, QWidget#AppRoot, QStackedWidget#Pages, QWidget#Page {{
+QMainWindow, QWidget#AppRoot, QStackedWidget#Pages, QWidget#Page, QScrollArea#PageScroll {{
     background: {c['bg']};
 }}
 QToolTip {{

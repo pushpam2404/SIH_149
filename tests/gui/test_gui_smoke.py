@@ -104,3 +104,15 @@ def test_badges_are_tall_enough_to_stay_rounded(window):
     badge = window._file_eraser._count_badge
     assert badge.height() == ui._BADGE_HEIGHT
     assert ui._BADGE_RADIUS * 2 < ui._BADGE_HEIGHT
+
+
+def test_pages_scroll_instead_of_overlapping_in_a_short_window(window, qtbot):
+    from app.gui.widgets.ui import Page
+
+    window.resize(1000, 560)
+    window._navigate_to("file_eraser")
+    qtbot.wait(50)
+    page = window._file_eraser.findChild(Page)
+    assert page.verticalScrollBar().maximum() > 0, "content taller than the window should scroll"
+    queue = window._file_eraser._queue_list
+    assert queue.height() >= queue.minimumHeight()

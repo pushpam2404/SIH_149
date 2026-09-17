@@ -33,7 +33,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(APP_NAME)
         self.resize(1280, 820)
-        self.setMinimumSize(1040, 680)
+        # Small enough for a 1366×768 laptop at 125% scaling; pages scroll when content doesn't fit.
+        self.setMinimumSize(960, 560)
 
         ensure_data_dirs()
         self._ledger = AuditLedger(AUDIT_DB_PATH)

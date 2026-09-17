@@ -70,6 +70,13 @@ def main() -> int:
     box.grab().save(str(out / f"{tag}_message_box.png"))
     box.close()
 
+    # Short window: pages must scroll, not overlap (regression seen on a 1024×768 screen).
+    window.resize(1000, 600)
+    for key in ("file_eraser", "drive_eraser"):
+        window._navigate_to(key)
+        settle()
+        window.grab().save(str(out / f"{tag}_{key}_small_window.png"))
+
     window.close()
     print(f"Saved {len(list(out.glob(tag + '_*.png')))} screenshots to {out.resolve()}")
     return 0

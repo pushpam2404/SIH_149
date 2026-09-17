@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QTableWidget,
     QVBoxLayout,
@@ -40,14 +41,24 @@ def button(text: str, variant: str = "secondary", icon_name: str | None = None, 
     return btn
 
 
-class Page(QWidget):
+class Page(QScrollArea):
     """Page scaffold: title + subtitle header, optional header actions, and a
-    vertical body layout (`self.body`) for cards."""
+    vertical body layout (`self.body`) for cards.
+
+    The page is a scroll area: when the window is shorter than the content
+    (small laptop screens, or Windows display scaling at 125–150%), the page
+    scrolls instead of squeezing cards on top of each other."""
 
     def __init__(self, title: str, subtitle: str, parent=None):
         super().__init__(parent)
-        self.setObjectName("Page")
-        outer = QVBoxLayout(self)
+        self.setObjectName("PageScroll")
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        content = QWidget()
+        content.setObjectName("Page")
+        self.setWidget(content)
+        outer = QVBoxLayout(content)
         outer.setContentsMargins(PAGE_MARGIN, 24, PAGE_MARGIN, PAGE_MARGIN)
         outer.setSpacing(SECTION_GAP + 4)
 

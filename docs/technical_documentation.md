@@ -264,6 +264,11 @@ a known file" feature.
   Finder/Explorer favourites, tags or search. `scripts/render_screenshots.py`
   renders every page and dialog; CI runs it with each OS's real display
   system and publishes the PNGs to `ci-screenshots-<os>` branches.
+- **Small screens:** every page is a scroll area (`widgets/ui.py::Page`). CI
+  screenshots on a 1024×768 Windows runner showed cards drawn on top of each
+  other when the window was shorter than the content; pages now scroll
+  instead. The window's minimum size is 960×560, which fits a 1366×768 laptop
+  at 125% display scaling.
 - **Windows specifics:** the process sets its own AppUserModelID so the
   taskbar shows the app rather than python.exe; subprocesses (PowerShell,
   PhotoRec) start with `CREATE_NO_WINDOW` so no console windows flash.
