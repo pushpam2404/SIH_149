@@ -1,0 +1,45 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# runtime data — audit DB, generated reports, demo disk images
+data/
+reports/
+tests/fixtures/sample_images/
+*.img
+*.dmg
+
+.DS_Store
+.env
+
+# stray files photorec's /log flag writes relative to CWD when a caller
+# doesn't set cwd= (fixed in photorec_engine.py, kept here defensively)
+photorec.log
+photorec.se2
+
+# stray files from manually probing timestamping.py's openssl ts path
+*.tsq
+*.tsr
+
+# PyInstaller build output
+*.spec.bak
+
+CLAUDE.md
+
+# internal planning/handoff docs — not judge-facing deliverables
+docs/BACKLOG_*.md
+docs/ROADMAP_OVERVIEW.md
+docs/ps.txt
+docs/Digital Forensics Toolchain Feasibility.md
+docs/Forensic File Carving Techniques Survey.md
+docs/Secure Data Erasure Standards Analysis.md
+docs/Secure File Deletion Analysis.md
+
+# local tooling output — promo video build (brag) and CodeGraph index
+brag-output/
+.codegraph/
