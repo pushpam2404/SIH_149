@@ -10,7 +10,7 @@ admin rights are needed. Scan the result in the app's Recovery page.
 The photo is deleted the way a FAT driver deletes a file (directory entry
 marked deleted, cluster chain freed, data left in place). It is NOT erased
 with the app's File & Folder Eraser — for that comparison, use the disk
-image walkthrough in docs/beginners_guide.md (macOS) or a USB stick.
+image walkthrough in docs/walkthrough.md (macOS) or a USB stick.
 """
 from __future__ import annotations
 

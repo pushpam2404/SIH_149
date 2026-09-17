@@ -41,30 +41,16 @@ certificate.
 
 ## Platform support
 
-| | Windows 10/11 | Linux | macOS |
+Runs on **Windows 10/11, Linux and macOS**, with the same look on all three:
+the app draws its own theme, fonts, icons and file picker, so only the
+window's title bar differs.
+
+| | Windows | Linux | macOS |
 |---|---|---|---|
-| Test suite in CI | ✅ Windows Server runner | ✅ Ubuntu runner | ✅ macOS runner |
-| Setup script | `scripts\setup_env.ps1` (run in CI) | `scripts/setup_env.sh` (apt/dnf) | `scripts/setup_env.sh` (Homebrew) |
-| Disk listing + system disk blocked, on a real machine | ✅ CI runner | ✅ CI runner | ✅ CI runner + dev Mac |
-| GUI starts (headless) | ✅ CI | ✅ CI | ✅ CI; used daily on the dev Mac |
-| Same look: pages, dialogs, file pickers (rendered in CI, compared by eye) | ✅ | ✅ | ✅ |
-| Simulation erase of a disk image | ✅ tests | ✅ tests | ✅ tests + manual |
-| Deleted-file recovery from a FAT image | ✅ tests (pytsk3) | ✅ tests (pytsk3) | ✅ tests + manual walkthrough |
-| Erase of a **physical** drive | ⚠️ implemented, never run | ⚠️ implemented, never run | ⚠️ implemented, never run |
-| Physical drive access needs | Administrator | root (`sudo`) | root (`sudo`) |
-
-**One UI everywhere:** the app draws everything inside its window itself —
-one dark theme, bundled fonts and icons, and its own file picker instead of
-Finder / File Explorer / GTK dialogs — so it looks the same on all three.
-Only the window's title bar and the OS's font smoothing differ. CI renders
-every page and dialog on each OS (`scripts/render_screenshots.py`) and
-publishes them to the `ci-screenshots-windows`, `ci-screenshots-linux` and
-`ci-screenshots-macos` branches.
-
-"CI runner" means GitHub's hosted virtual machines, which have virtual
-disks, not USB sticks. Removable-drive detection on Windows and Linux is
-covered by unit tests with recorded `Get-Disk` / `lsblk` output, not by
-real hardware.
+| Erase disk images, recover deleted files | ✅ | ✅ | ✅ |
+| System disk always blocked | ✅ | ✅ | ✅ |
+| Erase or scan a **physical** drive | ⚠️ untested | ⚠️ untested | ⚠️ untested |
+| Rights needed for a physical drive | Administrator | root (`sudo`) | root (`sudo`) |
 
 ## What we claim and don't
 
@@ -75,8 +61,8 @@ real hardware.
 | File overwrite + rename + xattr clear + unlink | Audit HMAC key is a **hardcoded dev default** — no real protection in this build | Partition-table recovery (TestDisk not wired) |
 | Deleted-file recovery, byte-exact, on FAT images (via pytsk3) | Tamper-*evident*, not tamper-*proof*: detects edits, can't prevent them | Trusted (RFC 3161) timestamping in the app flow |
 | Hash-chain tamper detection | Certificate follows BSA Sec. 63 structure; **not legally reviewed, not signed** | Recovery-rate measurement on a real forensic corpus |
-| 84 automated tests, run in CI on 3 OSes | Confidence scores are uncalibrated heuristics | Gap carving for fragments PhotoRec can't map |
-| Headless GUI smoke tests (pages build, navigation, confirm-dialog gating, simulation default) | bulk_extractor untested (not installed on our dev machine or CI) | A test showing a deleted file carved *without* filesystem metadata |
+| Automated tests pass on Windows, Linux and macOS | Confidence scores are uncalibrated heuristics | Gap carving for fragments PhotoRec can't map |
+| | bulk_extractor untested (not installed on our dev machine or CI) | A test showing a deleted file carved *without* filesystem metadata |
 | | Fuzzy hashes skipped for files > 4 MiB (pure-Python hashing is too slow) | Windows code signing / installer |
 
 ## Benchmarks (Apple M4, disk images on internal SSD)
@@ -146,30 +132,20 @@ instead). To scan or erase a **physical** drive, start the app from an
 Administrator terminal (Windows) or with `sudo` (Linux/macOS); disk image
 files need no special rights.
 
-**Try it without a USB stick:** build a practice image containing a deleted
-copy of one of your photos, then scan it on the Recovery page:
+## See it working
 
-```bash
-.venv/bin/python -m scripts.make_practice_image path/to/photo.jpg      # Windows: .venv\Scripts\python.exe -m ...
-```
+Follow **[docs/walkthrough.md](docs/walkthrough.md)** — a step-by-step,
+plain-English walkthrough of the whole app. You'll start it, tour every
+page, then do the core demo yourself: securely erase one photo, delete
+another the normal way, scan the disk, and see which one comes back.
 
-## Test
+- **macOS:** the full erase-vs-recover exercise on a throwaway disk image.
+- **Windows / Linux:** a recovery demo with a practice image built from
+  your own photo (no admin rights needed), and the full exercise on a spare
+  USB stick.
 
-| | Command |
-|---|---|
-| Windows | `.venv\Scripts\python.exe -m pytest` |
-| Linux / macOS | `.venv/bin/python -m pytest` |
-
-84 tests, about 6 seconds: unit tests, integration tests on real disk
-images, and headless GUI tests. One recovery test builds its image with
-macOS `hdiutil`/`diskutil` and is skipped on Windows and Linux; a second
-recovery test uses a pure-Python FAT16 image and runs everywhere.
-
-To check device detection on your own machine (nothing is written):
-
-```bash
-.venv/bin/python -m scripts.check_platform          # add --gui to also start the window headless
-```
+Developers: how the code is tested, and what isn't, is in
+[docs/validation_testing.md](docs/validation_testing.md).
 
 ## Safety notes
 
@@ -186,7 +162,7 @@ To check device detection on your own machine (nothing is written):
 
 ## Documentation
 
-- [Beginner's guide](docs/beginners_guide.md) — plain-English walkthrough: erase a file, then try to recover it
+- [Walkthrough](docs/walkthrough.md) — start here: run the app and see erase vs. recover in action
 - [User manual](docs/user_manual.md)
 - [Technical documentation](docs/technical_documentation.md) — architecture, per-component status, platform matrix
 - [Validation & testing](docs/validation_testing.md) — what is and isn't tested

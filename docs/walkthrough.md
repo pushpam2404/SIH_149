@@ -1,6 +1,6 @@
-# Beginner's Guide: Erase a File, Then Try to Recover It
+# Walkthrough: Erase a File, Then Try to Recover It
 
-This guide is for anyone who wants to use this app, even if you are not
+This walkthrough is for anyone who wants to use this app, even if you are not
 very technical. It explains:
 
 1. What the app does, in plain words
@@ -373,7 +373,7 @@ Two things can write to the disk after photo1 is deleted:
 2. **macOS**, which writes its own `.fseventsd` log files at random times,
    including when you eject. → That's what **Step 4b** turns off.
 
-We hit both of these while writing this guide: once photo1's start was
+We hit both of these while writing this walkthrough: once photo1's start was
 overwritten by the `.fseventsd` log files (they then showed up in the
 results as `f0000297.gz` and `f0000301.gz`, sitting exactly where photo1
 used to start). With Step 4b, our test runs wrote **no** log files to the
