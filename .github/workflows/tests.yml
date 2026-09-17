@@ -47,16 +47,17 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip
           .venv/bin/python -m pip install -r requirements.txt
 
+      # ci_report.py prints full output and also publishes the summary as annotations.
       - name: Tests (Windows)
         if: runner.os == 'Windows'
-        run: .venv\Scripts\python.exe -m pytest -v
+        run: .venv\Scripts\python.exe .github\ci_report.py tests
       - name: Tests (Linux / macOS)
         if: runner.os != 'Windows'
-        run: .venv/bin/python -m pytest -v
+        run: .venv/bin/python .github/ci_report.py tests
 
       - name: Platform self-check on the real runner (Windows)
         if: runner.os == 'Windows'
-        run: .venv\Scripts\python.exe -m scripts.check_platform --gui
+        run: .venv\Scripts\python.exe .github\ci_report.py platform
       - name: Platform self-check on the real runner (Linux / macOS)
         if: runner.os != 'Windows'
-        run: .venv/bin/python -m scripts.check_platform --gui
+        run: .venv/bin/python .github/ci_report.py platform

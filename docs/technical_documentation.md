@@ -34,7 +34,7 @@ orchestrators `drive_eraser.py`, `file_eraser.py` and `scan_service.py`
 each log directly), not by any mechanism that makes bypassing it
 impossible.
 
-## Device Safety & System-Drive Detection — Verified (macOS)
+## Device Safety & System-Drive Detection — Verified (macOS); Windows/Linux see below
 
 `app/core/devices/backend_base.py` defines one normalized `DeviceInfo`
 dataclass that every platform backend returns, so `safety.py` never has
@@ -47,9 +47,29 @@ only if it is:
    not internal AND not the system container.
 
 Anything else, including anything the backend can't classify, is denied.
-On macOS, `MacOSDeviceBackend._is_system_container()` compares the disk
-against `diskutil info -plist /`'s `ParentWholeDisk`, and treats the
-device as the system drive if that lookup fails.
+Every backend's `is_system_drive()` also returns True for any internal
+disk, as a second layer.
+
+How each backend finds the system disk and decides "removable":
+
+| | System disk | Removable | If enumeration fails |
+|---|---|---|---|
+| **macOS** (`backend_macos.py`) | whole disk equal to `ParentWholeDisk` of `diskutil info -plist /` | `RemovableMedia` or `Ejectable` | treated as system disk |
+| **Windows** (`backend_windows.py`) | `Get-Disk` `IsSystem` **or** `IsBoot` **or** the disk holding `%SystemDrive%`'s partition | bus type USB, SD or MMC only | no devices listed |
+| **Linux** (`backend_linux.py`) | any descendant in `lsblk`'s tree (partition, LVM, LUKS) mounted at `/`, `/boot`, `/boot/efi`, `/efi`, `/usr`, `/var`, `/home` or used as swap | `RM` flag, or transport `usb`/`mmc` (`HOTPLUG` ignored — hot-swap internal bays set it) | exception, shown as an empty list |
+
+Windows notes: the enumeration script casts every field inside PowerShell
+so the JSON is the same on Windows PowerShell 5.1 (which serializes the
+BusType enum as a number) and PowerShell 7 (a string); the parser accepts
+both. Raw writes need Administrator; `open_raw()` takes the disk offline
+with `Set-Disk` for the write (Windows refuses writes to sectors of mounted
+volumes) and restores its online/read-only state afterwards, also when
+the write fails.
+
+Linux note: older util-linux prints lsblk flags as the strings `"0"`/`"1"`.
+The previous parser used `bool(...)`, and `bool("0")` is `True`, so internal
+disks could be reported as removable. Fixed and covered by tests with both
+output formats.
 
 **Limitation:** "removable/external" comes from what the OS reports. An
 external drive that happens to hold important data is still an allowed
@@ -87,26 +107,34 @@ targets, and the random-fill check tests for high entropy, so a region
 that still holds encrypted or compressed original data would also pass.
 Full read-back verification is not implemented.
 
-Real (non-image) device erasure goes through the same code path but raw
-writes use a plain `open()`, which needs elevated permissions. No run
-against a physical drive is recorded in `validation_testing.md`; all
-automated tests use disk images.
+Real (non-image) device erasure goes through the same code path via the
+backend's `open_raw()`, which needs elevated permissions (Administrator on
+Windows, root on Linux/macOS). The GUI checks this before starting and
+explains what's missing. No run against a physical drive is recorded in
+`validation_testing.md` on any platform; all automated tests use disk
+images or recorded enumeration output.
 
-## Filesystem-Aware File Erasure — Runs on APFS, warning text not tested
+## Filesystem-Aware File Erasure — Warning text unit-tested; detection checked per OS
 
 `app/core/erasure/fs_aware.py` detects the filesystem of a file before
 erasing it and returns warnings shown in the GUI and stored in the audit
 entry:
-- APFS: copy-on-write warning, plus a count of local snapshots if any.
-- NTFS: files under 1 KB may be resident in the MFT.
-- ext3/ext4: journaling may keep fragments.
+- APFS, ReFS, Btrfs, ZFS: copy-on-write warning (APFS also counts local
+  Time Machine snapshots).
+- NTFS: files under ~1 KB may live inside their MFT record; Volume Shadow
+  Copies may keep earlier versions; alternate data streams aren't overwritten.
+- ext2/3/4, XFS: journaling may keep fragments.
+- FAT/exFAT: contents are overwritten but the deleted directory entry keeps
+  most of the original file name (observed in our own recovery tests).
+
+Detection: macOS `statfs(2)` via ctypes, Windows `GetVolumeInformationW`
+via ctypes, Linux `df -T`. The result is cached per device, so a folder of
+many files costs one detection, not one per file (the old code spawned
+`df`/`stat`/`diskutil`/`tmutil` for every file, ~0.2 s each).
 
 It only warns. It never deletes snapshots or edits filesystem metadata.
-The checks spawn `df`/`stat`/`tmutil` for every file (~0.22 s per file
-measured), which makes large batches of small files slow.
-NTFS and ext4 detection is **implemented, untested** (development was
-on macOS). `invoke_trim()` runs `fstrim` on Linux, does nothing on macOS,
-and is not attempted on Windows.
+`invoke_trim()` runs `fstrim` on Linux (needs root; at most once a minute
+per volume), and does nothing on macOS and Windows.
 
 ## Firmware Sanitize — Not wired (on purpose)
 
