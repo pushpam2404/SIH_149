@@ -113,6 +113,10 @@ class Card(QFrame):
         layout.addLayout(self.body, 1)
 
 
+_BADGE_HEIGHT = 22
+_BADGE_RADIUS = 10
+
+
 class Badge(QLabel):
     """Pill-shaped status label. Always carries text, so meaning never
     depends on colour alone."""
@@ -120,15 +124,17 @@ class Badge(QLabel):
     def __init__(self, text: str = "", tone: str = "neutral", parent=None):
         super().__init__(text, parent)
         self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        self.setFixedHeight(_BADGE_HEIGHT)
+        self.setAlignment(Qt.AlignCenter)
         self.set_tone(tone)
 
     def set_tone(self, tone: str) -> None:
         fg, bg = TONE_COLORS.get(tone, TONE_COLORS["neutral"])
         self.setStyleSheet(
-            # min-height keeps the pill taller than 2 × radius on every OS: Qt drops the
-            # rounding entirely when the radius exceeds half the height (seen on Windows,
-            # whose font metrics make the label a few pixels shorter than on macOS).
-            f"background:{bg}; color:{fg}; border-radius:9px; padding:2px 10px; min-height:16px;"
+            # Height is fixed in code (see __init__), and the radius stays below half of
+            # it: Qt draws square corners when radius >= height / 2. Windows ignored a
+            # stylesheet min-height and rendered the pill 18 px tall with square corners.
+            f"background:{bg}; color:{fg}; border-radius:{_BADGE_RADIUS}px; padding:0 10px;"
             "font-size:11px; font-weight:600;"
         )
 

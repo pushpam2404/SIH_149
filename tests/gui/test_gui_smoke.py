@@ -96,3 +96,11 @@ def test_file_dialogs_use_the_themed_qt_dialog_on_every_os(window):
     assert dialog.sidebarUrls(), "sidebar should list home folders and drives"
     assert dialog.nameFilters() == ["Disk images (*.img)", "All files (*)"]
     dialog.close()
+
+
+def test_badges_are_tall_enough_to_stay_rounded(window):
+    from app.gui.widgets import ui
+
+    badge = window._file_eraser._count_badge
+    assert badge.height() == ui._BADGE_HEIGHT
+    assert ui._BADGE_RADIUS * 2 < ui._BADGE_HEIGHT
